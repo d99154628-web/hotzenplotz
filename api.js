@@ -2,7 +2,7 @@
  *  설정: Apps Script 웹 앱 주소(…/exec)를 따옴표 안에 붙여 넣으세요.
  *  비워 두면 "데모 모드"로 동작합니다 (이 컴퓨터 브라우저 안에서만 저장).
  * ===================================================================== */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzCgtrcbRj0Z3Xbx0YG1B_Bk3rR69igWVePUdhLGbX6xVdz00PADcRcL0FuNSdNIkIWcQ/exec';
 /* ===================================================================== */
 
 const DEMO = !API_URL;
