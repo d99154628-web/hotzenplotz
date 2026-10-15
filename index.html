@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>호첸플로츠를 잡아라!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7eedb; --paper2:#efe0bd; --card:#fffaf0; --ink:#3a2a1c; --ink2:#6b5440;
+  --apple:#c63b2c; --apple2:#e8604e; --leaf:#2f6b3b; --leaf2:#5c9a52; --gold:#e6a823;
+  --cave:#2a2320; --sky:#cfe6e8; --line:#d9c79f; --ok:#2f8a4a; --no:#c63b2c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:'Gowun Dodum',system-ui,sans-serif;color:var(--ink);font-size:18px;line-height:1.55;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(198,59,44,.07) 0 60px, transparent 61px),
+    radial-gradient(circle at 88% 70%, rgba(47,107,59,.08) 0 90px, transparent 91px),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(160,120,60,.06) 31px 32px),
+    var(--paper);
+}
+button{font:inherit;color:inherit;cursor:pointer}
+.en{font-family:'Nunito',sans-serif;font-weight:800;letter-spacing:.2px}
+h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:10px 18px;
+  background:var(--leaf);color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.15)}
+.brand{font-family:'Jua';font-size:22px;white-space:nowrap}
+.trail{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+.trail .n{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:17px;
+  background:rgba(255,255,255,.15);border:2px dashed rgba(255,255,255,.35);flex:none}
+.trail .n.done{background:var(--gold);border:2px solid #fff3}
+.trail .n.now{background:#fff;border:2px solid var(--gold);transform:scale(1.18);box-shadow:0 0 0 4px rgba(230,168,35,.35)}
+.trail .seg{height:3px;width:22px;background:rgba(255,255,255,.3);border-radius:2px;flex:none}
+.trail .seg.done{background:var(--gold)}
+.hd-right{display:flex;align-items:center;gap:10px}
+.pill{background:rgba(255,255,255,.16);border-radius:999px;padding:4px 12px;font-size:15px;white-space:nowrap}
+.toggle{border:0;border-radius:999px;padding:5px 12px;background:rgba(255,255,255,.16);font-size:15px;color:#fff}
+.toggle.on{background:var(--gold);color:var(--ink)}
+.demo-flag{position:fixed;left:10px;bottom:10px;background:#3a2a1c;color:#fff;font-size:13px;padding:4px 10px;border-radius:8px;opacity:.75;z-index:50}
+
+/* ---------- layout ---------- */
+main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:24px 26px;
+  box-shadow:0 6px 0 var(--paper2), 0 10px 24px rgba(80,50,20,.08);position:relative}
+.stepinfo{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:var(--ink2);font-size:15px}
+.stepinfo .bar{flex:1;height:8px;border-radius:8px;background:var(--paper2);margin-left:14px;overflow:hidden}
+.stepinfo .bar i{display:block;height:100%;background:var(--leaf2);border-radius:8px;transition:width .4s}
+.task-title{display:inline-block;font-family:'Jua';font-size:15px;background:var(--leaf);color:#fff;border-radius:999px;padding:3px 14px;margin-bottom:10px}
+.prompt{font-size:21px;margin:4px 0 16px;font-family:'Jua'}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.center{text-align:center}
+.btn{border:0;border-radius:14px;padding:12px 22px;font-family:'Jua';font-size:19px;background:var(--apple);color:#fff;
+  box-shadow:0 4px 0 #8e2519;transition:transform .08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8e2519}
+.btn.green{background:var(--leaf);box-shadow:0 4px 0 #1d4425}
+.btn.ghost{background:#fff;color:var(--ink);border:2px solid var(--line);box-shadow:0 3px 0 var(--line);font-size:17px;padding:9px 16px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.big{font-size:23px;padding:15px 34px}
+
+/* story */
+.story{display:grid;grid-template-columns:200px 1fr;gap:26px;align-items:center}
+.story .art{display:grid;place-items:center;font-size:84px;line-height:1;min-height:180px;background:var(--sky);border-radius:18px;border:2px solid var(--line);position:relative;overflow:hidden}
+.story .art.night{background:#3b3340}
+.story .art.orchard{background:linear-gradient(#cfe6e8 60%,#9cc27f 60%)}
+.story h2{font-size:30px;color:var(--apple);margin-bottom:8px}
+.story p{margin:6px 0}
+.story .hz{background:#2a2320;color:#ffe9a8;border-radius:14px;padding:10px 14px;margin-top:12px;font-size:17px}
+.story .hz b{color:#fff}
+
+/* options */
+.opts{display:grid;gap:12px}
+.opts.c2{grid-template-columns:repeat(2,1fr)} .opts.c3{grid-template-columns:repeat(3,1fr)}
+.opt{background:#fff;border:3px solid var(--line);border-radius:18px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  box-shadow:0 4px 0 var(--line);transition:transform .1s, border-color .2s}
+.opt:hover:not([disabled]){border-color:var(--gold);transform:translateY(-2px)}
+.opt .pe{font-size:44px;line-height:1.1}
+.opt .pk{font-size:17px}
+.opt .pen{font-family:'Nunito';font-weight:800;font-size:16px;color:var(--leaf)}
+.opt.ok{border-color:var(--ok);background:#eaf6ea;box-shadow:0 4px 0 #9fd0a3}
+.opt.no{border-color:var(--no);background:#fbe9e6;opacity:.6;animation:shake .4s}
+.opt.big{font-size:56px;font-family:'Jua';padding:20px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.hint{margin-top:14px;background:#fff6dc;border:2px dashed var(--gold);border-radius:14px;padding:10px 14px}
+.hidden{display:none!important}
+.listenbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.qpic{font-size:70px;text-align:center;background:var(--sky);border-radius:18px;padding:10px;margin-bottom:14px;border:2px solid var(--line)}
+.feedback{margin-top:14px;font-family:'Jua';font-size:22px;min-height:30px}
+.feedback.ok{color:var(--ok)} .feedback.no{color:var(--no)}
+
+/* speak */
+.target{background:#fff;border:3px solid var(--leaf2);border-radius:18px;padding:16px;text-align:center;margin:10px 0 14px}
+.target .en{font-size:30px;color:var(--leaf)}
+.target .ko{color:var(--ink2);font-size:16px}
+.mic{display:flex;align-items:center;gap:14px;margin:6px auto 0;border:0;border-radius:999px;padding:14px 34px 14px 18px;
+  background:var(--apple);color:#fff;font-family:'Jua';font-size:22px;box-shadow:0 5px 0 #8e2519}
+.mic .mic-ico{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:28px}
+.mic.listening{background:var(--leaf);box-shadow:0 5px 0 #1d4425}
+.mic.listening .mic-ico{animation:pulse 1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.8)}100%{box-shadow:0 0 0 18px rgba(255,255,255,0)}}
+.heard{text-align:center;margin-top:14px;min-height:26px;color:var(--ink2)}
+.heard .en{color:var(--ink)}
+.meter{height:12px;border-radius:12px;background:var(--paper2);max-width:420px;margin:8px auto 0;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--gold);transition:width .5s}
+.meter.ok i{background:var(--ok)}
+.typed{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.typed input{font:inherit;padding:8px 12px;border:2px solid var(--line);border-radius:10px;width:min(460px,70vw)}
+
+/* dialog */
+.dlg{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.line{display:flex;gap:10px;align-items:flex-start;opacity:.45;transition:opacity .2s}
+.line.on{opacity:1}
+.line .who{flex:none;width:96px;font-family:'Jua';text-align:right;padding-top:6px}
+.line .bub{background:#fff;border:2px solid var(--line);border-radius:16px;padding:6px 14px}
+.line .bub.blur{color:transparent;text-shadow:0 0 9px rgba(58,42,28,.55);user-select:none}
+.line.hotz .bub{background:#2a2320;color:#ffe9a8;border-color:#2a2320}
+.line.hotz .bub.blur{color:transparent;text-shadow:0 0 9px rgba(255,233,168,.7)}
+.line.on .bub{border-color:var(--gold);box-shadow:0 0 0 3px rgba(230,168,35,.3)}
+
+/* number grid */
+.nums{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;margin-top:14px}
+.nums button{border:2px solid var(--line);background:#fff;border-radius:12px;padding:8px 0;font-family:'Jua';font-size:20px;box-shadow:0 3px 0 var(--line)}
+.nums button:hover{border-color:var(--apple);color:var(--apple)}
+
+/* order puzzle */
+.slots{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:12px 0}
+.slot{border:3px dashed var(--line);border-radius:16px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:6px;background:#fffdf7;position:relative}
+.slot .no{font-family:'Jua';font-size:15px;color:var(--ink2)}
+.slot .play{border:0;background:var(--paper2);border-radius:999px;padding:2px 10px;font-size:14px;margin-top:2px}
+.slot.cur{border-color:var(--gold);background:#fff6dc}
+.slot.fill{border-style:solid;border-color:var(--leaf2);cursor:pointer}
+.slot.right{border-color:var(--ok);background:#eaf6ea}
+.slot .pe{font-size:38px;margin-top:4px}
+.bank{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.bank .opt{padding:8px 4px}
+.bank .opt .pe{font-size:34px}
+.bank .opt.used{visibility:hidden}
+
+/* suspects / letters */
+.letters{display:flex;gap:8px;justify-content:center;margin:6px 0 2px}
+.letters span{width:46px;height:54px;border-radius:10px;background:var(--paper2);display:grid;place-items:center;font-family:'Nunito';font-weight:800;font-size:30px;color:var(--ink2);border:2px solid var(--line)}
+.letters span.got{background:var(--gold);color:#fff;border-color:#c98d10}
+.suspect{display:flex;align-items:center;gap:16px;background:var(--sky);border-radius:18px;padding:12px 18px;border:2px solid var(--line);margin-bottom:14px}
+.suspect .face{font-size:64px}
+.suspect .nm{font-family:'Jua';font-size:22px}
+
+/* caves overlay */
+#overlay{position:fixed;inset:0;z-index:40;background:linear-gradient(rgba(30,24,20,.82),rgba(30,24,20,.93)),url(assets/img/bg_caves.jpg) center/cover #1e1814;overflow:auto;padding:28px 18px}
+.banner-img{display:block;width:100%;aspect-ratio:1376/560;object-fit:cover;border-radius:16px;border:2px solid var(--line);margin-bottom:18px;background:var(--paper2)}
+.art.paper{background:#fbf6ea}
+.art img.fig{width:100%;height:100%;max-height:230px;object-fit:contain;mix-blend-mode:multiply}
+.fig-inline{display:block;max-width:360px;width:100%;margin:0 auto 6px;mix-blend-mode:multiply}
+#overlay .inner{max-width:980px;margin:0 auto;color:#fff}
+#overlay .ov-title{font-family:'Jua';font-size:30px;text-align:center;margin-bottom:6px;color:#ffe9a8}
+#overlay .ov-sub{text-align:center;margin-bottom:20px;color:#e9dcc4}
+.caves{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.cave{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;color:#fff}
+.cave .mouth{width:100%;aspect-ratio:1/1.05;border-radius:50% 50% 10px 10px / 60% 60% 10px 10px;
+  background:radial-gradient(ellipse at 50% 85%, #0d0a09 0 45%, #3d332d 46% 60%, #6d5a49 61%);
+  display:grid;place-items:center;position:relative;border:4px solid #8a735c;transition:transform .15s}
+.cave:hover .mouth{transform:translateY(-4px)}
+.cave .num{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:50%;background:var(--gold);color:var(--ink);font-family:'Jua';font-size:26px;display:grid;place-items:center;border:3px solid #fff}
+.cave .pe{font-size:56px;filter:drop-shadow(0 2px 4px #000)}
+.cave .lbl{margin-top:8px;text-align:center;font-family:'Nunito';font-weight:800;font-size:16px}
+.cave .lblk{font-size:14px;color:#d9ccb6}
+.cave.mine .mouth{border-color:var(--gold);box-shadow:0 0 0 6px rgba(230,168,35,.4)}
+.cave.hit .mouth{border-color:#7fe08f;box-shadow:0 0 0 8px rgba(127,224,143,.45)}
+.cave.dim{opacity:.35}
+.ov-card{background:var(--card);color:var(--ink);border-radius:22px;padding:22px;margin-top:22px}
+.waitdots::after{content:'';animation:dots 1.4s infinite}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+
+/* toast + confetti */
+#toast{position:fixed;left:50%;top:84px;transform:translateX(-50%) translateY(-30px);opacity:0;z-index:60;
+  background:var(--ink);color:#fff;padding:10px 20px;border-radius:999px;font-family:'Jua';font-size:19px;transition:.3s;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.burst{position:fixed;pointer-events:none;z-index:70;font-size:28px;animation:fly 1s ease-out forwards}
+@keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(260deg);opacity:0}}
+
+.apples{display:flex;gap:18px;justify-content:center;margin:14px 0}
+.apples button{border:0;background:none;font-size:72px;filter:grayscale(1) opacity(.35);transition:.2s}
+.apples button.on{filter:none;transform:scale(1.1)}
+.sumrow{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+.sumrow .pill2{background:var(--paper2);border-radius:14px;padding:8px 16px;font-family:'Jua';font-size:19px}
+@media (max-width:760px){
+  .story{grid-template-columns:1fr} .opts.c3{grid-template-columns:repeat(2,1fr)}
+  .caves{grid-template-columns:repeat(2,1fr)} .slots,.bank{grid-template-columns:repeat(3,1fr)}
+  .nums{grid-template-columns:repeat(6,1fr)} .trail .seg{width:8px} .brand{font-size:18px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🍎 호첸플로츠를 잡아라!</div>
+  <div class="trail" id="trail"></div>
+  <div class="hd-right">
+    <span class="pill" id="who">번호 ?</span>
+    <button class="toggle" id="bgmBtn" title="배경음악 켜기/끄기">🎵 음악</button>
+    <button class="toggle" id="slowBtn" title="영어를 천천히 들려줘요">🐢 천천히</button>
+  </div>
+</header>
+<main id="app"></main>
+<div id="overlay" class="hidden"><div class="inner" id="ovInner"></div></div>
+<div id="toast"></div>
+<script src="api.js"></script>
+<script>
+/* ===================== 상태 ===================== */
+const KEY = 'hz_student';
+let S = load();
+function fresh() { return { num: 0, stage: 0, step: 0, items: {}, hint: {}, p1: {}, stars: 0, clues: 0, selfStars: 0, subs: false }; }
+function load() { try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return fresh(); } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+const $ = s => document.querySelector(s);
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1800); }
+function burst(x, y, chars = ['🍎', '⭐', '✨', '🍃']) {
+  for (let i = 0; i < 14; i++) {
+    const b = document.createElement('div'); b.className = 'burst'; b.textContent = chars[i % chars.length];
+    b.style.left = x + 'px'; b.style.top = y + 'px';
+    b.style.setProperty('--dx', (Math.random() * 260 - 130) + 'px'); b.style.setProperty('--dy', (Math.random() * -200 - 40) + 'px');
+    document.body.appendChild(b); setTimeout(() => b.remove(), 1000);
+  }
+}
+function burstAt(el) { const r = el.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2); }
+
+/* 서버로 기록 보내기 */
+function logTry(qid, stage, ok, said) {
+  const it = S.items[qid] || (S.items[qid] = { tries: 0, done: false });
+  it.tries++;
+  if (ok === true || ok === 'skip') it.done = true;
+  save();
+  SendQueue.push({ action: 'log', num: S.num, stage, qid, ok, tries: it.tries, hint: !!S.hint[qid], said: said || '' });
+}
+function setStage(n) {
+  S.stage = n; S.step = 0; save();
+  SendQueue.push({ action: 'progress', num: S.num, stage: n });
+  window.scrollTo(0, 0);
+  render();
+}
+function nextStep() { S.step++; save(); window.scrollTo(0, 0); render(); }
+
+/* 대사 재생 (새로 누르면 이전 재생은 멈춤) */
+let PT = 0;
+async function playLines(lines, onLine) {
+  const my = ++PT; Voice.stop(); await sleep(60);
+  for (let i = 0; i < lines.length; i++) {
+    if (my !== PT) return false;
+    onLine && onLine(i);
+    await sayAs(lines[i][0], lines[i][1]);
+    await sleep(280);
+  }
+  if (my === PT) onLine && onLine(-1);
+  return my === PT;
+}
+function stopAudio() { PT++; Voice.stop(); }
+
+/* ===================== 그림 ===================== */
+function shadowSVG(size = 120) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 120 120" aria-label="정체를 숨긴 도둑">
+    <ellipse cx="60" cy="112" rx="38" ry="6" fill="rgba(0,0,0,.25)"/>
+    <path d="M26 112 Q24 64 60 56 Q96 64 94 112Z" fill="#231c18"/>
+    <circle cx="60" cy="44" r="22" fill="#231c18"/>
+    <ellipse cx="51" cy="44" rx="5" ry="3.6" fill="#ffd34d"/><ellipse cx="69" cy="44" rx="5" ry="3.6" fill="#ffd34d"/>
+    <circle cx="52" cy="44" r="1.6" fill="#231c18"/><circle cx="70" cy="44" r="1.6" fill="#231c18"/>
+    <text x="96" y="30" font-size="26" font-family="Jua" fill="#e6a823">?</text>
+    <text x="14" y="40" font-size="18" font-family="Jua" fill="#e6a823">?</text>
+  </svg>`;
+}
+const planCard = (p, en = false) => `<span class="pe">${p.emoji}${p.sub}</span><span class="pk">${p.ko}</span>${en ? `<span class="pen">${p.phrase}</span>` : ''}`;
+
+/* ===================== 공용 활동 틀 ===================== */
+function frame(el, title, inner) {
+  el.innerHTML = `<div class="card"><span class="task-title">${title}</span>${inner}</div>`;
+  return el.firstElementChild;
+}
+
+/* 이야기 카드 */
+function storyStep(o) {
+  return (el, next) => {
+    el.innerHTML = `<div class="card">${o.img ? `<img class="banner-img" src="assets/img/${o.img}.jpg" alt="">` : ''}<div class="story" ${o.img ? 'style="display:block"' : ''}>
+      ${o.img ? '' : `<div class="art ${o.bg || ''}">${o.art}</div>`}
+      <div><h2>${o.title}</h2>${o.lines.map(l => `<p>${l}</p>`).join('')}
+      ${o.hz ? `<div class="hz">🎩 <b>호첸플로츠:</b> <span class="en">${esc(o.hz)}</span></div>` : ''}
+      <div class="row" style="margin-top:18px">
+        ${o.hz ? `<button class="btn ghost" data-a="hz">🔊 호첸플로츠 목소리</button>` : ''}
+        <button class="btn green big" data-a="go">${o.btn || '다음 ▶'}</button></div>
+      </div></div></div>`;
+    if (o.hz) {
+      el.querySelector('[data-a=hz]').onclick = () => playLines([['Hotz', o.hz]]);
+      if (o.autoHz) {
+        Sfx.play('laugh');
+        setTimeout(() => playLines([['Hotz', o.hz]]), Sfx.missing['sfx_thief_laugh.mp3'] ? 300 : 3200);
+      }
+    }
+    if (o.sfx) setTimeout(() => Sfx.play(o.sfx), 150);
+    el.querySelector('[data-a=go]').onclick = () => { stopAudio(); (o.onGo || next)(); };
+  };
+}
+
+/* 고르기 문제 */
+function choiceStep(o) {
+  return (el, next) => {
+    if (S.items[o.qid] && S.items[o.qid].done) return next();
+    let wrongs = 0;
+    const card = frame(el, o.title, `
+      <div class="prompt">${o.prompt}</div>
+      ${o.pic ? `<div class="qpic">${o.pic}</div>` : ''}
+      ${o.play ? `<div class="listenbar"><button class="btn ghost" data-a="play">🔊 ${o.playLabel || '다시 듣기'}</button></div>` : ''}
+      ${o.extra || ''}
+      <div class="opts ${o.cols || 'c3'}">${o.options.map(op => `<button class="opt ${op.cls || ''}" data-k="${op.key}">${op.html}</button>`).join('')}</div>
+      <div class="hint hidden">💡 ${o.hint || ''}</div>
+      <div class="feedback"></div>`);
+    const fb = card.querySelector('.feedback');
+    if (o.play) {
+      card.querySelector('[data-a=play]').onclick = () => o.play(card);
+      if (o.autoplay !== false) setTimeout(() => o.play(card), 350);
+    }
+    if (o.mount) o.mount(card);
+    card.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+      if (b.disabled) return;
+      if (b.dataset.k === o.answer) {
+        b.classList.add('ok');
+        card.querySelectorAll('.opt').forEach(x => x.disabled = true);
+        logTry(o.qid, S.stage, true);
+        Sfx.play('correct'); if (o.okSfx) setTimeout(() => Sfx.play(o.okSfx), 350);
+        fb.className = 'feedback ok'; fb.textContent = o.okMsg || '정답! 🍎';
+        burstAt(b); stopAudio();
+        setTimeout(next, 1100);
+      } else {
+        wrongs++;
+        b.classList.add('no'); b.disabled = true;
+        logTry(o.qid, S.stage, false);
+        Sfx.play('wrong');
+        fb.className = 'feedback no'; fb.textContent = '앗, 다시 들어 보고 골라 봐요!';
+        if (wrongs >= 2 && o.hint) { S.hint[o.qid] = true; save(); card.querySelector('.hint').classList.remove('hidden'); }
+      }
+    });
+  };
+}
+
+/* 말하기 문제 (크롬 음성인식 자동 채점) */
+function speakTask(el, o) {
+  let tries = 0, busy = false;
+  const typed = !SR;
+  el.innerHTML = `<div class="card"><span class="task-title">${o.title}</span>
+    <div class="prompt">${o.prompt}</div>
+    ${o.pic ? `<div class="qpic">${o.pic}</div>` : ''}
+    <div class="target"><div class="en">${esc(o.target)}</div><div class="ko">${esc(o.ko || '')}</div></div>
+    <div class="row" style="justify-content:center;margin-bottom:12px">
+      <button class="btn ghost" data-a="model">🔊 먼저 들어 보기</button></div>
+    ${typed ? `<div class="hint">이 브라우저는 음성 인식이 안 돼요. (크롬북 크롬에서는 마이크로 말해요) 연습용으로 입력해서 확인해요.</div>
+      <div class="typed"><input placeholder="영어 문장을 입력하세요"><button class="btn green" data-a="check">확인</button></div>`
+      : `<button class="mic" data-a="mic"><span class="mic-ico">🎤</span><span class="mic-txt">눌러서 말하기</span></button>`}
+    <div class="heard"></div><div class="meter"><i></i></div>
+    <div class="feedback center"></div>
+    <div class="row hidden" data-a="skipbox" style="justify-content:center;margin-top:10px">
+      <button class="btn ghost" data-a="skip">⏭ 다음에 다시 도전하기</button></div></div>`;
+  const c = el.firstElementChild;
+  const heard = c.querySelector('.heard'), meter = c.querySelector('.meter'), fb = c.querySelector('.feedback');
+  const model = () => playLines(o.model || [[o.voice || 'Girl', o.target]]);
+  c.querySelector('[data-a=model]').onclick = model;
+  if (o.autoModel) setTimeout(model, 300);
+  const log = (ok, said) => (o.log ? o.log(ok, said, tries) : logTry(o.qid, o.stage ?? S.stage, ok, said));
+  const judge = alts => {
+    tries++;
+    const r = speechScore(o.target, alts);
+    heard.innerHTML = alts.length ? `들린 말: <span class="en">“${esc(r.said)}”</span>` : '잘 안 들렸어요. 마이크 가까이에서 또박또박!';
+    meter.querySelector('i').style.width = Math.round(r.score * 100) + '%';
+    const said = (typed ? '[입력] ' : '') + (r.said || '');
+    if (r.score >= PASS_SCORE) {
+      meter.classList.add('ok');
+      fb.className = 'feedback center ok'; fb.textContent = r.score >= 0.99 ? '완벽해요! 🌟' : '좋아요! 통과! 🍎';
+      log(true, said);
+      Sfx.play('pass');
+      burstAt(fb);
+      c.querySelectorAll('button').forEach(b => b.disabled = true);
+      setTimeout(() => o.onDone(true), 1300);
+    } else {
+      fb.className = 'feedback center no'; fb.textContent = `조금만 더! (${tries}번째 도전) 🔊 듣고 다시 말해 봐요.`;
+      log(false, said);
+      Sfx.play('wrong');
+      if (tries >= 3) c.querySelector('[data-a=skipbox]').classList.remove('hidden');
+    }
+  };
+  c.querySelector('[data-a=skip]').onclick = () => { log('skip', ''); o.onDone(false); };
+  if (typed) {
+    const inp = c.querySelector('input');
+    c.querySelector('[data-a=check]').onclick = () => inp.value.trim() && judge([inp.value]);
+    inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) judge([inp.value]); };
+  } else {
+    const mic = c.querySelector('[data-a=mic]');
+    mic.onclick = async () => {
+      if (busy) return;
+      busy = true; stopAudio();
+      Sfx.play('micOn'); await sleep(250); Bgm.hold(true);
+      mic.classList.add('listening'); mic.querySelector('.mic-txt').textContent = '듣고 있어요… 말해요!';
+      heard.textContent = ''; fb.textContent = '';
+      try {
+        const alts = await listenOnce();
+        judge(alts);
+      } catch (err) {
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          heard.innerHTML = '🔒 마이크가 막혀 있어요. 주소창 왼쪽 아이콘 → <b>마이크 허용</b> 후 다시 눌러요.';
+        } else if (err === 'network') {
+          heard.textContent = '인터넷 연결이 불안정해요. 다시 눌러 주세요.';
+        } else heard.textContent = '마이크를 다시 눌러 주세요.';
+        c.querySelector('[data-a=skipbox]').classList.remove('hidden');
+      }
+      busy = false; Bgm.hold(false);
+      mic.classList.remove('listening'); mic.querySelector('.mic-txt').textContent = '다시 말하기';
+    };
+  }
+}
+function speakStep(o) {
+  return (el, next) => {
+    if (S.items[o.qid] && S.items[o.qid].done) return next();
+    speakTask(el, Object.assign({}, o, { onDone: next }));
+  };
+}
+
+/* 대화 듣기 플레이어 */
+function dialogHTML(lines, blur) {
+  const nameKo = { Linh: 'Linh', Tom: 'Tom', Hana: '하나', Amy: 'Amy', Uju: '우주', Hotz: '🎩 ???', Girl: '여자아이', Boy: '남자아이' };
+  return `<div class="dlg">${lines.map((l, i) => `<div class="line ${l[0] === 'Hotz' ? 'hotz' : ''}" data-i="${i}">
+    <div class="who">${nameKo[l[0]] || l[0]}</div><div class="bub en ${blur ? 'blur' : ''}">${esc(l[1])}</div></div>`).join('')}</div>`;
+}
+function highlighter(card) {
+  return i => card.querySelectorAll('.line').forEach(l => l.classList.toggle('on', Number(l.dataset.i) === i || i === -1));
+}
+
+/* ===================== 관문 ===================== */
+const DAEGU_TALK = [
+  ['Linh', 'What are you going to do this weekend?'],
+  ['Tom', "I'm going to stay home."],
+  ['Linh', 'Me, too. How about you, Hana?'],
+  ['Hana', "I'm going to visit my grandparents in Daegu."],
+  ['Tom', 'What are you going to do there?'],
+  ['Hana', "I'm going to pick apples. My grandma is going to make apple pizza!"],
+  ['Linh', 'Wow! Can we come, too?'],
+  ['Hana', 'Sure!'],
+  ['Hotz', "Apple pizza? Hehehe... I'm going to take the recipe!"]
+];
+const SUSPECTS = [
+  { qid: 'M1', name: '책가방 멘 소년', face: '👦', asker: 'Girl', who: 'Boy', plan: 'math', letter: 'C' },
+  { qid: 'M2', name: '앞치마 두른 소녀', face: '👧', asker: 'Boy', who: 'Girl', plan: 'clean', letter: 'A' },
+  { qid: 'M3', name: '배낭 멘 소년', face: '🧒', asker: 'Girl', who: 'Boy', plan: 'camp', letter: 'V' },
+  { qid: 'M4', name: '모자 쓴 소녀', face: '👱‍♀️', asker: 'Boy', who: 'Girl', plan: 'ball', letter: 'E' }
+];
+/* Practice 1: 우주와 Amy */
+const PRACTICE = {
+  stay: ['Amy', 'Uju'], clean: ['Amy', 'Uju'], math: ['Amy', 'Uju'],
+  ball: ['Uju', 'Amy'], grand: ['Uju', 'Amy'], camp: ['Uju', 'Amy']
+};
+const Q = 'What are you going to do this weekend?';
+const practiceLines = id => [[PRACTICE[id][0], Q], [PRACTICE[id][1], `I'm going to ${PLAN[id].phrase}.`]];
+
+const STAGES = {
+  /* ① 발자국 단서 — Words + Word Chant */
+  1() {
+    const order = shuffle(PLANS.map(p => p.id), S.num * 31 + 1);
+    const speakIds = shuffle(PLANS.map(p => p.id), S.num * 17 + 5).slice(0, 2);
+    return [
+      storyStep({
+        img: 'bg_orchard', title: '진흙 위의 수상한 발자국',
+        lines: ['호첸플로츠가 도망친 길에 커다란 발자국 6개가 찍혀 있어요.', '발자국을 밟으면 영어 소리가 나요. <b>들은 소리와 맞는 그림</b>을 찾아야 다음 발자국이 보여요!'],
+        btn: '발자국 따라가기 🐾'
+      }),
+      ...order.map((id, i) => choiceStep({
+        qid: 'W-' + id, title: `① 발자국 단서 ${i + 1}/6`,
+        prompt: '🐾 발자국에서 들린 계획은 무엇일까요?',
+        play: async () => { Sfx.play('footstep'); await sleep(850); playLines([['Girl', PLAN[id].phrase]]); }, playLabel: '발자국 소리 다시 듣기',
+        options: order.slice().sort().map(k => ({ key: k, html: planCard(PLAN[k]) })),
+        answer: id, hint: `들린 말: <span class="en">${PLAN[id].phrase}</span>`
+      })),
+      (el, next) => {
+        const lines = PLANS.map(p => {
+          const w = p.phrase.split(' ')[0];
+          const cap = w[0].toUpperCase() + w.slice(1);
+          return ['Girl', `${cap}, ${w}, ${p.phrase}!`];
+        });
+        const card = frame(el, '① 발자국 단서 · 찬트', `
+          <div class="prompt">🎵 발자국 찬트! 리듬에 맞춰 함께 따라 불러요.</div>
+          <div class="row" style="margin-bottom:10px"><button class="btn" data-a="play">▶ 찬트 듣고 따라 부르기</button></div>
+          <div class="dlg">${lines.map((l, i) => `<div class="line on" data-i="${i}"><div class="who">${PLANS[i].emoji}</div><div class="bub en">${esc(l[1])}</div></div>`).join('')}</div>
+          <div class="row" style="justify-content:flex-end"><button class="btn green" data-a="go" disabled>다음 ▶</button></div>`);
+        const hl = highlighter(card);
+        card.querySelector('[data-a=play]').onclick = async () => {
+          const done = await playLines(lines.map(l => [l[0], l[1]]), hl);
+          if (done) card.querySelector('[data-a=go]').disabled = false;
+        };
+        card.querySelector('[data-a=go]').onclick = () => { stopAudio(); next(); };
+      },
+      ...speakIds.map((id, i) => speakStep({
+        qid: 'S1-' + (i + 1), title: `① 발자국 단서 · 말하기 ${i + 1}/2`,
+        prompt: '🎤 그림을 보고 호첸플로츠를 흉내 내어 말해 봐요!',
+        pic: PLAN[id].emoji + PLAN[id].sub, target: `I'm going to ${PLAN[id].phrase}.`, ko: PLAN[id].koS,
+        voice: 'Girl'
+      })),
+      storyStep({
+        art: '🗺️', bg: 'orchard', title: '지도 조각 1을 찾았어요!', sfx: 'clue',
+        lines: ['발자국은 할머니 댁 사과밭 덤불 속으로 이어져요.', '그런데 호첸플로츠는 레시피가 있다는 걸 어떻게 알았을까요? 덤불 속에 숨어서 <b>아이들의 대화를 엿들었던 것</b> 같아요!'],
+        btn: '대화 엿들으러 가기 🌳', onGo: () => { S.clues = Math.max(S.clues, 1); setStage(2); }
+      })
+    ];
+  },
+
+  /* ② 엿들은 대화 — Fun Talk 1 */
+  2() {
+    const playTalk = card => {
+      const hl = card ? highlighter(card) : null;
+      return playLines(DAEGU_TALK, hl);
+    };
+    const talkBox = () => `<details class="hint" style="margin-bottom:12px"><summary>📜 대화 자막 보기 (힌트)</summary>${dialogHTML(DAEGU_TALK, false)}</details>`;
+    const markSub = card => {
+      const d = card.querySelector('details');
+      if (d) d.ontoggle = () => { if (d.open) { ['F1', 'F2', 'F3', 'F4'].forEach(q => S.hint[q] = true); save(); } };
+    };
+    return [
+      storyStep({
+        img: 'bg_bush', title: '덤불 속에서 들린 대화',
+        lines: ['지난주 교실, 탐·린·하나가 주말 계획을 이야기하고 있었어요.', '그때 창밖 덤불 속에서 누군가 몰래 엿듣고 있었죠… 🎩', '대화를 잘 듣고 호첸플로츠가 알게 된 비밀을 밝혀 봐요!'],
+        btn: '대화 듣기 🎧'
+      }),
+      (el, next) => {
+        const card = frame(el, '② 엿들은 대화', `
+          <div class="prompt">🎧 대화를 끝까지 들어 봐요. 말풍선이 흐릿한 건 귀로만 들어야 하기 때문이에요!</div>
+          <div class="row"><button class="btn" data-a="play">▶ 대화 듣기</button></div>
+          ${dialogHTML(DAEGU_TALK, true)}
+          <div class="row" style="justify-content:flex-end"><button class="btn green" data-a="go" ${S.heardTalk ? '' : 'disabled'}>문제 풀기 ▶</button></div>`);
+        card.querySelector('[data-a=play]').onclick = async () => {
+          if (await playTalk(card)) { S.heardTalk = true; save(); card.querySelector('[data-a=go]').disabled = false; }
+        };
+        card.querySelector('[data-a=go]').onclick = () => { stopAudio(); next(); };
+      },
+      choiceStep({
+        qid: 'F1', title: '② 엿들은 대화 1/4', prompt: 'Tom은 이번 주말에 무엇을 할 계획인가요?',
+        play: c => playTalk(c), playLabel: '대화 다시 듣기', autoplay: false, extra: talkBox(), mount: markSub,
+        options: ['camp', 'stay', 'math'].map(k => ({ key: k, html: planCard(PLAN[k]) })), answer: 'stay',
+        hint: 'Tom: <span class="en">I\'m going to stay home.</span>'
+      }),
+      choiceStep({
+        qid: 'F2', title: '② 엿들은 대화 2/4', prompt: '하나는 이번 주말에 어디에 가나요?',
+        play: c => playTalk(c), playLabel: '대화 다시 듣기', autoplay: false, extra: talkBox(), mount: markSub,
+        options: ['ball', 'camp', 'grand'].map(k => ({ key: k, html: planCard(PLAN[k]) })), answer: 'grand',
+        hint: '하나: <span class="en">I\'m going to visit my grandparents in Daegu.</span>'
+      }),
+      choiceStep({
+        qid: 'F3', title: '② 엿들은 대화 3/4', prompt: '하나는 그곳에서 무엇을 할까요?',
+        play: c => playTalk(c), playLabel: '대화 다시 듣기', autoplay: false, extra: talkBox(), mount: markSub,
+        options: [
+          { key: 'apple', html: '<span class="pe">🍎🧺</span><span class="pk">사과 따기</span>' },
+          { key: 'clean', html: planCard(PLAN.clean) },
+          { key: 'math', html: planCard(PLAN.math) }
+        ], answer: 'apple',
+        hint: '하나: <span class="en">I\'m going to pick apples.</span>'
+      }),
+      choiceStep({
+        qid: 'F4', title: '② 엿들은 대화 4/4', prompt: '린이 한 질문을 완성해요. 빈칸에 알맞은 말은?',
+        play: () => playLines([['Linh', Q]]), playLabel: '질문 다시 듣기', autoplay: true,
+        pic: `<div class="en" style="font-size:30px">What are you <span style="color:var(--apple)">_____</span> to do this weekend?</div>`,
+        cols: 'c3',
+        options: ['go', 'going', 'goes'].map(k => ({ key: k, html: `<span class="pen" style="font-size:28px">${k}</span>` })),
+        answer: 'going', hint: '<span class="en">What are you going to do this weekend?</span>'
+      }),
+      speakStep({
+        qid: 'F5', title: '② 엿들은 대화 · 말하기', prompt: '🎤 이번엔 우리가 물어볼 차례! 린처럼 친구에게 주말 계획을 물어요.',
+        target: Q, ko: '너는 이번 주말에 무엇을 할 거니?', voice: 'Linh'
+      }),
+      storyStep({
+        art: `<img class="fig" src="assets/img/thief.jpg" alt="">`, bg: 'paper', title: '비밀이 풀렸어요!', sfx: 'clue',
+        lines: ['하나 할머니가 <b>사과피자</b>를 만든다는 말을 듣고, 호첸플로츠가 레시피를 노린 거였어요!', '덤불 속 발자국이 마을 쪽으로 이어져요. 마을에는 수상한 사람 4명이 서성이고 있대요.'],
+        hz: "Hehehe... You can't catch me!", autoHz: true,
+        btn: '마을로 출발 🏘️', onGo: () => { S.clues = Math.max(S.clues, 2); setStage(3); }
+      })
+    ];
+  },
+
+  /* ③ 수상한 마을 사람들 — Listen and Match */
+  3() {
+    const lettersHTML = () => `<div class="letters">${SUSPECTS.map(s => `<span class="${S.items[s.qid] && S.items[s.qid].done ? 'got' : ''}">${S.items[s.qid] && S.items[s.qid].done ? s.letter : '?'}</span>`).join('')}</div>`;
+    return [
+      storyStep({
+        img: 'bg_village', title: '마을의 수상한 사람들',
+        lines: ['마을에서 호첸플로츠를 본 사람이 있을까요? 4명에게 주말 계획을 물어봤어요.', '대답을 잘 듣고 <b>알맞은 계획 그림</b>을 연결하면 비밀 글자를 하나씩 얻어요.', '글자 4개를 모으면 호첸플로츠가 숨은 곳을 알 수 있어요!'],
+        btn: '물어보러 가기 🔍'
+      }),
+      ...SUSPECTS.map((s, i) => choiceStep({
+        qid: s.qid, title: `③ 수상한 사람 ${i + 1}/4`,
+        prompt: `${s.name}에게 주말 계획을 물었어요. 대답과 맞는 그림을 고르세요.`,
+        extra: `<div class="suspect"><div class="face">${s.face}</div><div><div class="nm">${'ABCD'[i]}. ${s.name}</div><div>비밀 글자 모으기</div>${lettersHTML()}</div></div>`,
+        play: () => playLines([[s.asker, Q], [s.who, `I'm going to ${PLAN[s.plan].phrase}.`]]), playLabel: '대답 다시 듣기',
+        options: PLANS.map(p => ({ key: p.id, html: planCard(p) })), answer: s.plan,
+        okMsg: `정답! 비밀 글자 “${s.letter}” 획득! 🔑`, okSfx: 'letter',
+        hint: `대답: <span class="en">I'm going to ${PLAN[s.plan].phrase}.</span>`
+      })),
+      storyStep({
+        art: '🕳️', bg: 'night', title: 'C · A · V · E', sfx: 'clue',
+        lines: ['모은 글자를 이어 보니 <span class="en" style="font-size:24px">CAVE</span> — 바로 <b>동굴</b>이에요!', '마지막 소녀가 말했어요. “숲속 동굴 앞에서 커다란 그림자를 봤어요!”', '동굴 앞에는 무언가 잠긴 금고가 놓여 있대요.'],
+        btn: '동굴로 달려가기 🏃', onGo: () => { S.clues = Math.max(S.clues, 3); setStage(4); }
+      })
+    ];
+  },
+
+  /* ④ 금고 자물쇠 — Practice 1 (+ OPTION Play 1 카드 순서) */
+  4() {
+    const order = shuffle(PLANS.map(p => p.id), S.num * 7 + 3);
+    const speakId = shuffle(PLANS.map(p => p.id), S.num * 11 + 9)[0];
+    return [
+      storyStep({
+        img: 'bg_safe', title: '동굴 앞 레시피 금고',
+        lines: ['금고에 쪽지가 붙어 있어요. “우주와 Amy의 대화 6개를 <b>들은 순서대로</b> 놓으면 열린다.”', '대화를 듣고 그림 카드를 1번 칸부터 차례로 놓아요. 칸마다 ▶ 버튼으로 다시 들을 수 있어요.'],
+        btn: '자물쇠 풀기 🔓'
+      }),
+      (el, next) => {
+        if (S.items['P1-order'] && S.items['P1-order'].done) return next();
+        let placed = Array(6).fill(null), wrongs = 0, locked = Array(6).fill(false);
+        const card = frame(el, '④ 금고 자물쇠', `
+          <div class="prompt">🔢 들은 순서대로 그림 카드를 칸에 놓으세요.</div>
+          <div class="row"><button class="btn" data-a="all">▶ 대화 6개 차례로 듣기</button><span class="pill hidden" style="background:var(--paper2)" data-a="now"></span></div>
+          <div class="slots">${order.map((_, i) => `<div class="slot" data-i="${i}"><span class="no">${i + 1}번</span><button class="play" data-p="${i}">▶ 듣기</button><span class="pe"></span></div>`).join('')}</div>
+          <div class="bank">${shuffle(PLANS.map(p => p.id)).map(id => `<button class="opt" data-id="${id}">${planCard(PLAN[id])}</button>`).join('')}</div>
+          <div class="hint hidden">💡 초록색 칸은 이미 맞았어요. 나머지 칸만 다시 들어 보세요!</div>
+          <div class="row" style="justify-content:space-between;margin-top:16px">
+            <div class="feedback" style="margin:0"></div>
+            <button class="btn green" data-a="check" disabled>🔓 자물쇠 열기</button></div>`);
+        const fb = card.querySelector('.feedback');
+        const nowPill = card.querySelector('[data-a=now]');
+        const slots = card.querySelectorAll('.slot');
+        const paint = () => {
+          slots.forEach((s, i) => {
+            s.classList.toggle('fill', !!placed[i]);
+            s.classList.toggle('right', locked[i]);
+            s.querySelector('.pe').textContent = placed[i] ? PLAN[placed[i]].emoji : '';
+          });
+          card.querySelectorAll('.bank .opt').forEach(b => b.classList.toggle('used', placed.includes(b.dataset.id)));
+          card.querySelector('[data-a=check]').disabled = placed.some(x => !x);
+        };
+        const curSlot = i => slots.forEach((s, k) => s.classList.toggle('cur', k === i));
+        card.querySelector('[data-a=all]').onclick = async () => {
+          const my = ++PT; Voice.stop(); await sleep(60);
+          for (let i = 0; i < 6; i++) {
+            if (my !== PT) return;
+            curSlot(i); nowPill.classList.remove('hidden'); nowPill.textContent = `지금 ${i + 1}번 대화`;
+            for (const l of practiceLines(order[i])) { if (my !== PT) return; await sayAs(l[0], l[1]); await sleep(200); }
+            await sleep(700);
+          }
+          curSlot(-1); nowPill.classList.add('hidden');
+        };
+        card.querySelectorAll('[data-p]').forEach(b => b.onclick = e => {
+          e.stopPropagation(); const i = Number(b.dataset.p); curSlot(i); nowPill.classList.remove('hidden'); nowPill.textContent = `${i + 1}번 대화`;
+          playLines(practiceLines(order[i])).then(() => { curSlot(-1); nowPill.classList.add('hidden'); });
+        });
+        slots.forEach((s, i) => s.onclick = () => { if (placed[i] && !locked[i]) { placed[i] = null; paint(); } });
+        card.querySelectorAll('.bank .opt').forEach(b => b.onclick = () => {
+          const i = placed.indexOf(null); if (i < 0) return;
+          placed[i] = b.dataset.id; paint();
+        });
+        card.querySelector('[data-a=check]').onclick = () => {
+          const right = placed.filter((id, i) => id === order[i]).length;
+          if (right === 6) {
+            logTry('P1-order', 4, true, placed.join(','));
+            fb.className = 'feedback ok'; fb.textContent = '철컥! 자물쇠가 열렸어요! 🔓'; Sfx.play('unlock');
+            burstAt(fb); stopAudio(); setTimeout(next, 1300);
+          } else {
+            wrongs++;
+            logTry('P1-order', 4, false, placed.join(','));
+            fb.className = 'feedback no'; fb.textContent = `${right}개 맞았어요. 다시 들어 봐요!`;
+            card.querySelector('.slots').animate([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], 300);
+            if (wrongs >= 2) {
+              S.hint['P1-order'] = true; save();
+              card.querySelector('.hint').classList.remove('hidden');
+              placed.forEach((id, i) => { if (id === order[i]) locked[i] = true; else placed[i] = null; });
+            } else {
+              placed = placed.map((id, i) => id);
+            }
+            paint();
+          }
+        };
+        paint();
+      },
+      speakStep({
+        qid: 'P1-speak', title: '④ 금고 · 마지막 암호',
+        prompt: `🎤 금고 안에 마지막 암호가 있어요! ${PRACTICE[speakId][1] === 'Uju' ? '우주' : 'Amy'}처럼 대답해 보세요.`,
+        pic: PLAN[speakId].emoji + PLAN[speakId].sub,
+        target: `I'm going to ${PLAN[speakId].phrase}.`, ko: `(질문) ${Q}`,
+        model: practiceLines(speakId), autoModel: true
+      }),
+      storyStep({
+        art: `<img class="fig" src="assets/img/thief.jpg" alt="">`, bg: 'paper', title: '금고가… 비어 있다!',
+        lines: ['금고 안에는 레시피 대신 쪽지 한 장이 들어 있었어요.', '“나는 <b>네 갈래 동굴</b> 중 한 곳에 숨어 있지. 선생님이 신호를 주면 찾아와 봐라!”'],
+        hz: "Hahaha! The recipe is mine! Find me if you can!", autoHz: true,
+        btn: '동굴 앞에서 기다리기 🕳️', onGo: () => { S.clues = Math.max(S.clues, 4); setStage(5); }
+      })
+    ];
+  },
+
+  /* ⑥ 레시피 되찾기 — Check It + My Study */
+  6() {
+    return [
+      storyStep({
+        art: '📦', title: '레시피 상자를 찾았다!',
+        lines: ['동굴 깊은 곳에서 레시피 상자를 찾았어요!', '상자에는 마지막 자물쇠가 2개 있어요. <b>대화를 듣고 그림과 맞으면 O, 다르면 X</b>를 골라요.'],
+        btn: '마지막 자물쇠 풀기 🗝️'
+      }),
+      choiceStep({
+        qid: 'C1', title: '⑥ Check It 1/2', prompt: '잘 듣고, 그림과 맞으면 O, 맞지 않으면 X를 고르세요.',
+        pic: '👧🧹🛏️', play: () => playLines([['Boy', Q], ['Girl', "I'm going to clean my room."]]),
+        cols: 'c2', options: [{ key: 'O', html: '⭕', cls: 'big' }, { key: 'X', html: '❌', cls: 'big' }], answer: 'O',
+        hint: '대답: <span class="en">I\'m going to clean my room.</span>'
+      }),
+      choiceStep({
+        qid: 'C2', title: '⑥ Check It 2/2', prompt: '잘 듣고, 그림과 맞으면 O, 맞지 않으면 X를 고르세요.',
+        pic: '👵🧒👴🛋️', play: () => playLines([['Girl', Q], ['Boy', "I'm going to watch a basketball game."]]),
+        cols: 'c2', options: [{ key: 'O', html: '⭕', cls: 'big' }, { key: 'X', html: '❌', cls: 'big' }], answer: 'X',
+        hint: '대답: <span class="en">I\'m going to watch a basketball game.</span> (그림은 조부모님 댁 방문)'
+      }),
+      (el, next) => {
+        const card = frame(el, '⑥ My Study', `
+          <div class="prompt">🍎 오늘 공부를 얼마나 자신 있게 했나요? 사과를 색칠해요.</div>
+          <div class="apples">${[1, 2, 3].map(n => `<button data-n="${n}">🍎</button>`).join('')}</div>
+          <div class="center" data-a="lbl" style="font-family:Jua;font-size:20px;min-height:30px"></div>
+          <div class="row" style="justify-content:center;margin-top:10px"><button class="btn green big" data-a="go" disabled>레시피 상자 열기 🍕</button></div>`);
+        const labels = { 1: '조금 더 공부할래요', 2: '할 수 있어요', 3: '자신 있어요!' };
+        const btns = card.querySelectorAll('.apples button');
+        btns.forEach(b => b.onclick = () => {
+          S.selfStars = Number(b.dataset.n); save();
+          btns.forEach(x => x.classList.toggle('on', Number(x.dataset.n) <= S.selfStars));
+          card.querySelector('[data-a=lbl]').textContent = labels[S.selfStars];
+          card.querySelector('[data-a=go]').disabled = false;
+        });
+        card.querySelector('[data-a=go]').onclick = () => {
+          SendQueue.push({ action: 'progress', num: S.num, stage: 7, stars: S.selfStars });
+          S.clues = 5; setStage(7);
+        };
+      }
+    ];
+  }
+};
+
+/* ===================== 특수 화면 ===================== */
+function numberScreen(el) {
+  el.innerHTML = `<div class="card">
+    <div class="story"><div class="art paper"><img class="fig" src="assets/img/kids.jpg" alt="탐, 린, 하나"></div>
+    <div><h2>호첸플로츠를 잡아라!</h2>
+    <p>탐, 린, 하나와 함께 <b>사라진 사과피자 레시피</b>를 되찾으러 가요.</p>
+    <p>🎧 이어폰을 꽂고, 아래에서 <b>내 번호</b>를 눌러요.</p></div></div>
+    <div class="nums">${Array.from({ length: 60 }, (_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('')}</div></div>`;
+  el.querySelectorAll('.nums button').forEach(b => b.onclick = () => {
+    const n = Number(b.dataset.n);
+    if (!confirm(`${n}번이 맞나요?`)) return;
+    S = fresh(); S.num = n; S.sid = lastP1 ? (lastP1.sid || '') : undefined; save();
+    SendQueue.push({ action: 'progress', num: n, stage: 0 });
+    render();
+  });
+}
+function introScreen(el) {
+  storyStep({
+    img: 'concept_key_visual', title: '사라진 사과피자 레시피!',
+    lines: [
+      '이번 주말, 하나는 탐과 린을 데리고 대구 할머니·할아버지 댁 사과밭에 가기로 했어요.',
+      '그런데 도착해 보니 큰일이 났어요! 도둑 <b>호첸플로츠</b>가 할머니의 비밀 <b>황금 사과피자 레시피</b>를 훔쳐 달아났어요!',
+      '호첸플로츠가 흘리고 간 영어 단서를 풀면서 뒤쫓아 가 봐요. 🕵️'
+    ],
+    hz: "Hahaha! I'm going to eat apple pizza all weekend!", autoHz: true,
+    btn: '추격 시작! 🏃', onGo: () => setStage(1)
+  })(el);
+}
+function caveWait(el) {
+  const st = lastP1;
+  if (st && st.status === 'ended') {
+    el.innerHTML = `<div class="card center"><img class="fig-inline" src="assets/img/thief_caught.jpg" alt=""><h2 style="color:var(--apple);font-size:30px">동굴 추격전 끝!</h2>
+      <p>내가 붙잡은 횟수: <b>⭐ ${S.stars}</b></p><p>호첸플로츠가 도망치면서 떨어뜨린 상자가 보여요!</p>
+      <button class="btn green big" data-a="go">상자 열러 가기 📦</button></div>`;
+    el.querySelector('[data-a=go]').onclick = () => setStage(6);
+    return;
+  }
+  el.innerHTML = `<div class="card"><img class="banner-img" src="assets/img/bg_caves.jpg" alt=""><div class="story" style="display:block">
+    <div><h2>네 갈래 동굴 앞</h2>
+    <p>호첸플로츠는 동굴 4곳 중 하나에 숨어 있어요.</p>
+    <p class="waitdots">선생님이 게임을 시작할 때까지 기다려요</p>
+    <div class="hint">🎮 게임 방법<br>① 동굴 하나를 골라요 → ② 🎤 <span class="en">What are you going to do this weekend?</span> 라고 물어요 →
+    ③ 선생님이 봉투를 뽑으면 호첸플로츠가 대답해요 → ④ 내 동굴이면 그 말을 따라 말해서 붙잡아요! ⭐</div>
+    <p style="margin-top:12px">지금까지 붙잡은 횟수: <b>⭐ ${S.stars}</b></p></div></div></div>`;
+}
+function finale(el) {
+  el.innerHTML = `<div class="card center">
+    <img class="banner-img" src="assets/img/bg_finale.jpg" alt="">
+    <h2 style="color:var(--apple);font-size:34px">레시피를 되찾았어요!</h2>
+    <p>할머니가 활짝 웃으며 말했어요. <span class="en">“Thank you! Let's make apple pizza together!”</span></p>
+    <div class="sumrow">
+      <span class="pill2">🗺️ 단서 ${S.clues}/5</span>
+      <span class="pill2">⭐ 동굴 포획 ${S.stars}번</span>
+      <span class="pill2">🍎 자기평가 ${'🍎'.repeat(S.selfStars || 0) || '-'}</span>
+    </div>
+    <p>선생님께 이 화면을 보여 주세요. 다 끝난 친구는 짝에게 <span class="en">What are you going to do this weekend?</span> 하고 물어봐요!</p>
+    <button class="btn ghost" data-a="hz">🔊 호첸플로츠의 마지막 한마디</button></div>`;
+  el.querySelector('[data-a=hz]').onclick = () => playLines([['Hotz', "Oh no... I'm going to stay home and study math!"]]);
+  burst(innerWidth / 2, 200, ['🍕', '🍎', '⭐']);
+  if (!finale.played) { finale.played = true; Sfx.play('finale'); }
+}
+
+/* ===================== 그리기 ===================== */
+function renderHeader() {
+  const icons = ['🐾', '🌳', '🏘️', '🔐', '🕳️', '🍕'];
+  $('#trail').innerHTML = icons.map((ic, i) => {
+    const st = i + 1;
+    const cls = S.stage > st ? 'done' : (S.stage === st ? 'now' : '');
+    return (i ? `<span class="seg ${S.stage >= st ? 'done' : ''}"></span>` : '') +
+      `<span class="n ${cls}" title="${STAGE_NAMES[st]}">${ic}</span>`;
+  }).join('');
+  $('#who').textContent = S.num ? `${S.num}번 · 🗺️ ${S.clues}/5 · ⭐ ${S.stars}` : '번호 ?';
+  $('#slowBtn').classList.toggle('on', Voice.slow);
+  $('#bgmBtn').classList.toggle('on', Bgm.on);
+}
+function pickBgm() {
+  const caveMode = S.stage === 5 || !$('#overlay').classList.contains('hidden');
+  if (S.num) Bgm.play(caveMode ? 'bgm_cave.mp3' : 'bgm_orchard.mp3');
+}
+function render() {
+  renderHeader();
+  pickBgm();
+  const el = $('#app');
+  if (!S.num) return numberScreen(el);
+  if (S.stage === 0) return introScreen(el);
+  if (S.stage === 5) return caveWait(el);
+  if (S.stage >= 7) return finale(el);
+  const steps = STAGES[S.stage]();
+  if (S.step >= steps.length) return setStage(S.stage + 1);
+  el.innerHTML = `<div class="stepinfo"><span>${STAGE_NAMES[S.stage]} · ${S.step + 1}/${steps.length}</span><span class="bar"><i style="width:${Math.round(S.step / steps.length * 100)}%"></i></span></div><div id="stepbox"></div>`;
+  steps[S.step]($('#stepbox'), nextStep);
+}
+
+/* ===================== Play 1 : 네 갈래 동굴 (선생님과 실시간) ===================== */
+let lastP1 = null, ovKey = '';
+function p1Phase(st) {
+  const r = S.p1[st.round] || {};
+  if (st.status === 'choosing') return r.cave == null ? 'pick' : (!r.askDone ? 'ask' : 'wait');
+  if (st.status === 'revealed') {
+    if (r.cave == null) return 'miss';
+    if (r.cave === st.drawn) return r.caughtDone ? 'caught' : 'catch';
+    return r.repDone ? 'nope2' : 'nope';
+  }
+  return '';
+}
+function cavesHTML(st, r, mode) {
+  return `<div class="caves">${st.cards.map((id, i) => {
+    const p = PLAN[id];
+    let cls = '';
+    if (r.cave === i) cls += ' mine';
+    if (mode === 'reveal') cls += i === st.drawn ? ' hit' : ' dim';
+    return `<button class="cave${cls}" data-c="${i}"><div class="mouth"><span class="num">${i + 1}</span><span class="pe">${p.emoji}${p.sub}</span></div>
+      <div class="lbl">${p.phrase}</div><div class="lblk">${p.ko}</div></button>`;
+  }).join('')}</div>`;
+}
+function p1Log(kind, st, cave, ok, said) {
+  SendQueue.push({ action: 'p1', num: S.num, round: st.round, kind, cave, ok, said: said || '' });
+}
+function updateOverlay(force) {
+  const st = lastP1, ov = $('#overlay');
+  const active = S.num && st && (st.status === 'choosing' || st.status === 'revealed');
+  if (!active) { if (!ov.classList.contains('hidden')) { ov.classList.add('hidden'); ovKey = ''; render(); } return; }
+  const phase = p1Phase(st);
+  const key = `${st.round}|${st.status}|${phase}`;
+  if (key === ovKey && !force) return;
+  if (ov.classList.contains('hidden')) stopAudio();
+  ovKey = key; ov.classList.remove('hidden'); pickBgm();
+  const r = S.p1[st.round] || (S.p1[st.round] = {});
+  const inner = $('#ovInner');
+  const drawnPlan = st.drawn >= 0 ? PLAN[st.cards[st.drawn]] : null;
+  const ans = drawnPlan ? `I'm going to ${drawnPlan.phrase}.` : '';
+  const head = (t, s) => `<div class="ov-title">${t}</div><div class="ov-sub">${s}</div>`;
+  const done = () => { save(); updateOverlay(true); renderHeader(); };
+
+  if (phase === 'pick') {
+    inner.innerHTML = head(`🕳️ 라운드 ${st.round} · 호첸플로츠는 어느 동굴에?`, '숨어 있을 것 같은 동굴을 하나 골라요!') + cavesHTML(st, r, 'pick');
+    inner.querySelectorAll('.cave').forEach(b => b.onclick = () => {
+      r.cave = Number(b.dataset.c); p1Log('choice', st, r.cave, true); done();
+    });
+  } else if (phase === 'ask') {
+    inner.innerHTML = head(`🕳️ 라운드 ${st.round} · ${r.cave + 1}번 동굴`, '동굴 안을 향해 크게 물어봐요!') + cavesHTML(st, r, 'pick') + '<div class="ov-card" id="ovTask"></div>';
+    speakTask($('#ovTask'), {
+      title: 'Play 1 · 묻기', prompt: '🎤 호첸플로츠에게 주말 계획을 물어요!', target: Q, ko: '너는 이번 주말에 무엇을 할 거니?', voice: 'Girl',
+      log: (ok, said) => p1Log('ask', st, r.cave, ok, said),
+      onDone: () => { r.askDone = true; done(); }
+    });
+  } else if (phase === 'wait') {
+    inner.innerHTML = head(`🕳️ 라운드 ${st.round} · 내 동굴: ${r.cave + 1}번`, '<span class="waitdots">선생님이 봉투를 뽑을 때까지 기다려요</span>') + cavesHTML(st, r, 'pick');
+  } else {
+    if (!r.heard) { r.heard = true; save(); Sfx.play('drumroll'); setTimeout(() => playLines([['Hotz', ans]]), 2300); }
+    const again = `<button class="btn ghost" data-a="hz" style="margin:14px auto 0;display:block">🔊 호첸플로츠 대답 다시 듣기</button>`;
+    if (phase === 'catch') {
+      inner.innerHTML = head(`🎉 ${st.drawn + 1}번 동굴에서 대답이 들려요!`, '내 동굴이 맞았어요! 호첸플로츠의 말을 똑같이 따라 하면 붙잡을 수 있어요.') + cavesHTML(st, r, 'reveal') + '<div class="ov-card" id="ovTask"></div>';
+      speakTask($('#ovTask'), {
+        title: 'Play 1 · 따라 말하고 붙잡기', prompt: '🎤 호첸플로츠의 대답을 따라 말해요!', target: ans, ko: drawnPlan.koS, model: [['Hotz', ans]],
+        log: (ok, said) => p1Log('catch', st, r.cave, ok, said),
+        onDone: ok => { r.caughtDone = true; r.caught = !!ok; if (ok) { S.stars++; Sfx.play('catch'); toast('⭐ 호첸플로츠를 붙잡았다!'); } done(); }
+      });
+    } else if (phase === 'caught') {
+      inner.innerHTML = head(r.caught ? '⭐ 붙잡았다!' : '아깝다! 이번엔 놓쳤어요', '다음 라운드를 기다려요') +
+        (r.caught ? `<div class="ov-card center" style="margin:0 auto 18px;max-width:420px;padding:10px"><img class="fig-inline" src="assets/img/thief_caught.jpg" alt=""></div>` : '') + cavesHTML(st, r, 'reveal') + again;
+    } else if (phase === 'miss') {
+      inner.innerHTML = head(`호첸플로츠는 ${st.drawn + 1}번 동굴에 있었어요!`, '이번 라운드는 동굴을 고르지 못했어요. 다음 라운드를 기다려요.') + cavesHTML(st, r, 'reveal') + again;
+    } else if (phase === 'nope') {
+      inner.innerHTML = head(`앗! 호첸플로츠는 ${st.drawn + 1}번 동굴에 있었어요`, `대답: <span class="en">${esc(ans)}</span>`) + cavesHTML(st, r, 'reveal') +
+        `<div class="row" style="justify-content:center;margin-top:16px"><button class="btn" data-a="rep">🎤 대답 따라 말해 보기 (연습)</button></div>` + again;
+      inner.querySelector('[data-a=rep]').onclick = () => {
+        inner.innerHTML = head('따라 말하기 연습', '다음 라운드에서는 꼭 붙잡자!') + '<div class="ov-card" id="ovTask"></div>';
+        speakTask($('#ovTask'), {
+          title: 'Play 1 · 연습', prompt: '🎤 호첸플로츠의 대답을 따라 말해요!', target: ans, ko: drawnPlan.koS, model: [['Hotz', ans]],
+          log: (ok, said) => p1Log('repeat', st, r.cave, ok, said),
+          onDone: () => { r.repDone = true; done(); }
+        });
+      };
+    } else if (phase === 'nope2') {
+      inner.innerHTML = head('연습 완료! 👍', '다음 라운드를 기다려요') + cavesHTML(st, r, 'reveal') + again;
+    }
+    const hb = inner.querySelector('[data-a=hz]');
+    if (hb) hb.onclick = () => playLines([['Hotz', ans]]);
+  }
+}
+async function poll() {
+  try {
+    const res = await api({ action: 'state' });
+    if (res && res.p1) {
+      // 선생님이 '기록 초기화'를 하면 이 크롬북의 진행 기록도 새로 시작 (다음 반 대비)
+      const sid = res.p1.sid || '';
+      if (S.num && S.sid === undefined) { S.sid = sid; save(); }
+      else if (S.num && sid && S.sid !== sid) { S = fresh(); S.sid = sid; save(); stopAudio(); $('#overlay').classList.add('hidden'); ovKey = ''; render(); toast('새 수업이 시작됐어요. 번호를 골라요!'); }
+      const prev = lastP1 ? lastP1.status + lastP1.round : '';
+      lastP1 = res.p1;
+      updateOverlay();
+      if (S.stage === 5 && prev !== lastP1.status + lastP1.round && $('#overlay').classList.contains('hidden')) render();
+    }
+  } catch (e) {}
+  const active = lastP1 && (lastP1.status === 'choosing' || lastP1.status === 'revealed');
+  setTimeout(poll, active || S.stage === 5 ? 2500 : 4000);
+}
+
+/* ===================== 시작 ===================== */
+$('#who').onclick = () => { if (S.num && confirm('번호를 잘못 골랐나요? 처음부터 다시 시작할까요?')) { const sid = S.sid; S = fresh(); S.sid = sid; save(); render(); } };
+$('#who').style.cursor = 'pointer';
+document.addEventListener('click', e => {
+  if (e.target.closest('button') && !e.target.closest('.opt,.mic,.cave')) Sfx.play('click');
+  Bgm.resume();
+}, true);
+$('#bgmBtn').onclick = () => { const on = Bgm.toggle(); renderHeader(); toast(on ? '🎵 배경음악을 켰어요' : '🔇 배경음악을 껐어요'); };
+$('#slowBtn').onclick = () => { Voice.slow = !Voice.slow; renderHeader(); toast(Voice.slow ? '🐢 영어를 천천히 들려줄게요' : '🐇 보통 빠르기로 들려줄게요'); };
+if (DEMO) { const d = document.createElement('div'); d.className = 'demo-flag'; d.textContent = '데모 모드 (서버 연결 전)'; document.body.appendChild(d); }
+render();
+poll();
+SendQueue.flush();
+</script>
+</body>
+</html>

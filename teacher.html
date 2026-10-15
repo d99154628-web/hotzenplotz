@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교사용 · 호첸플로츠를 잡아라</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7eedb;--paper2:#efe0bd;--card:#fffaf0;--ink:#3a2a1c;--ink2:#6b5440;--apple:#c63b2c;--leaf:#2f6b3b;--leaf2:#5c9a52;--gold:#e6a823;--line:#d9c79f;--ok:#2f8a4a;--no:#c63b2c}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Gowun Dodum',sans-serif;color:var(--ink);background:var(--paper);font-size:16px}
+button{font:inherit;cursor:pointer}
+.en{font-family:'Nunito';font-weight:800}
+.jua,h1,h2,h3{font-family:'Jua';font-weight:400;margin:0}
+header{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--leaf);color:#fff;position:sticky;top:0;z-index:10;flex-wrap:wrap}
+header h1{font-size:22px}
+.chip{background:rgba(255,255,255,.16);border-radius:999px;padding:3px 12px;font-size:14px;white-space:nowrap}
+.sp{flex:1}
+.btn{border:0;border-radius:12px;padding:9px 16px;font-family:'Jua';font-size:17px;background:var(--apple);color:#fff;box-shadow:0 3px 0 #8e2519}
+.btn.green{background:var(--leaf);box-shadow:0 3px 0 #1d4425}
+.btn.gold{background:var(--gold);color:var(--ink);box-shadow:0 3px 0 #a87508}
+.btn.ghost{background:#fff;color:var(--ink);border:2px solid var(--line);box-shadow:none;font-size:15px;padding:6px 12px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+main{padding:16px 20px 60px;max-width:1500px;margin:0 auto}
+.card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px 18px;margin-bottom:16px}
+.card h2{font-size:21px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+/* play1 */
+.p1head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.status{font-family:'Jua';font-size:18px;padding:4px 14px;border-radius:999px;background:var(--paper2)}
+.caves{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.cave{background:#2a2320;color:#fff;border-radius:16px 16px 8px 8px;padding:10px;text-align:center;border:4px solid #6d5a49;position:relative}
+.cave .num{font-family:'Jua';font-size:22px;background:var(--gold);color:var(--ink);width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center}
+.cave .pe{font-size:44px;line-height:1.2}
+.cave .lbl{font-family:'Nunito';font-weight:800}
+.cave .cnt{font-family:'Jua';font-size:18px;color:#ffe9a8;margin-top:4px}
+.cave .who{font-size:13px;color:#d9ccb6;min-height:18px}
+.cave.hit{border-color:#7fe08f;box-shadow:0 0 0 6px rgba(127,224,143,.4)}
+.cave.dim{opacity:.4}
+.answer{margin-top:12px;text-align:center;font-size:26px;background:#2a2320;color:#ffe9a8;border-radius:14px;padding:10px}
+.p1stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.p1stats span{background:var(--paper2);border-radius:10px;padding:4px 10px}
+/* top wrong */
+.wrong{display:flex;flex-direction:column;gap:8px}
+.wrong .w{display:flex;justify-content:space-between;gap:10px;background:#fbe9e6;border-radius:12px;padding:8px 12px}
+.wrong .w b{color:var(--apple);font-family:'Jua';font-size:18px;white-space:nowrap}
+.dist{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.dist span{background:var(--paper2);border-radius:10px;padding:4px 10px;font-size:14px}
+/* table */
+.tblwrap{overflow:auto}
+table{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+th,td{border-bottom:1px solid var(--line);padding:4px 5px;text-align:center;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--card);z-index:2}
+th.g{font-family:'Jua';font-weight:400;font-size:14px;color:var(--leaf);border-bottom:2px solid var(--leaf2)}
+td.num{font-family:'Jua';font-size:17px;position:sticky;left:0;background:var(--card)}
+td.c{min-width:38px;cursor:pointer;border-radius:6px}
+td.c.ok{background:#dff1df}
+td.c.re{background:#fff1c9}
+td.c.bad{background:#fbd9d3}
+td.c.skip{background:#e6e0d6;color:#7a6c5c}
+.stg{font-family:'Jua';font-size:13px;background:var(--paper2);border-radius:8px;padding:2px 8px}
+.stg.s7{background:#dff1df}
+tr.idle td.num{color:#b0a08a}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--ink2);margin-bottom:8px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:3px}
+#pop{position:fixed;z-index:30;background:#3a2a1c;color:#fff;border-radius:12px;padding:10px 14px;max-width:340px;font-size:14px;display:none}
+/* login */
+.login{max-width:420px;margin:12vh auto;text-align:center}
+.login input{font:inherit;font-size:20px;padding:10px;border:2px solid var(--line);border-radius:12px;width:100%;margin:12px 0}
+/* big screen */
+body.big header,body.big .notbig{display:none}
+body.big main{max-width:none}
+body.big .p1card{min-height:96vh;margin:0}
+body.big .grid2{grid-template-columns:1fr}
+body.big .caves{gap:24px}
+body.big .cave .pe{font-size:90px}
+body.big .cave .lbl{font-size:24px}
+body.big .cave .cnt{font-size:26px}
+body.big .answer{font-size:46px}
+body.big .p1title{font-size:34px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login" class="login card">
+  <h1 class="jua" style="font-size:28px">👩‍🏫 교사용 화면</h1>
+  <p>호첸플로츠를 잡아라! · 6학년 Lesson 9 · 1차시</p>
+  <input id="pw" type="password" placeholder="교사용 비밀번호">
+  <button class="btn green" id="loginBtn" style="width:100%">들어가기</button>
+  <p id="loginMsg" style="color:var(--apple)"></p>
+</div>
+
+<div id="appT" style="display:none">
+<header>
+  <h1>👩‍🏫 호첸플로츠를 잡아라! · 교사용</h1>
+  <span class="chip" id="cJoined">접속 0명</span>
+  <span class="chip" id="cDone">완료 0명</span>
+  <span class="sp"></span>
+  <span class="chip" id="cTime">-</span>
+  <button class="btn ghost" id="resetBtn">🗑 기록 초기화</button>
+</header>
+<main>
+  <div class="grid2">
+    <section class="card p1card">
+      <div class="p1head">
+        <h2 class="p1title" style="margin:0">⑤ Play 1 · 네 갈래 동굴</h2>
+        <span class="status" id="p1Status">대기</span>
+        <span class="sp" style="flex:1"></span>
+        <button class="btn green" id="bNew">▶ 새 라운드</button>
+        <button class="btn gold" id="bDraw">✉️ 봉투 뽑기</button>
+        <button class="btn ghost" id="bHz">🔊 대답 다시</button>
+        <button class="btn ghost" id="bEnd">🏁 게임 끝내기</button>
+        <button class="btn ghost" id="bBgm">🎵 동굴 음악</button>
+        <button class="btn ghost" id="bBig">🖥 크게 보기</button>
+      </div>
+      <div id="p1Body"></div>
+    </section>
+    <section class="card notbig">
+      <h2>🚩 많이 틀린 문항 (첫 시도 기준)</h2>
+      <div class="wrong" id="wrongBox"></div>
+      <h2 style="margin-top:16px">🗺️ 관문별 인원</h2>
+      <div class="dist" id="distBox"></div>
+    </section>
+  </div>
+  <section class="card notbig">
+    <h2>📋 학생별 풀이 현황</h2>
+    <div class="legend">
+      <span><i style="background:#dff1df"></i>✅ 한 번에 정답</span>
+      <span><i style="background:#fff1c9"></i>🔁n 여러 번 만에 정답</span>
+      <span><i style="background:#fbd9d3"></i>❌n 아직 못 맞힘(틀린 횟수)</span>
+      <span><i style="background:#e6e0d6"></i>⏭ 건너뜀</span>
+      <span>💡 힌트 사용 · 🎤 칸을 누르면 인식된 문장이 보여요</span>
+    </div>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </section>
+</main>
+</div>
+<div id="pop"></div>
+<script src="api.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+let PW = sessionStorage.getItem('hz_pw') || '';
+let D = null, lastRevealKey = '';
+
+async function tapi(p) { return api(Object.assign({ pw: PW }, p)); }
+
+async function login() {
+  PW = $('#pw').value.trim();
+  const r = await tapi({ action: 'dash' }).catch(() => null);
+  if (!r) { $('#loginMsg').textContent = '서버에 연결하지 못했어요. api.js 의 주소를 확인하세요.'; return; }
+  if (r.ok === false) { $('#loginMsg').textContent = '비밀번호가 맞지 않아요.'; return; }
+  sessionStorage.setItem('hz_pw', PW);
+  start(r.dash);
+}
+$('#loginBtn').onclick = login;
+$('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
+
+function start(d) {
+  $('#login').style.display = 'none'; $('#appT').style.display = '';
+  lastRevealKey = d && d.p1 && d.p1.status === 'revealed' ? d.p1.round + '' : '';
+  if (d) draw(d);
+  loop();
+}
+async function loop() {
+  try {
+    const r = await tapi({ action: 'dash' });
+    if (r && r.ok) draw(r.dash);
+  } catch (e) {}
+  setTimeout(loop, D && D.p1 && (D.p1.status === 'choosing' || D.p1.status === 'revealed') ? 2500 : 4000);
+}
+
+/* ---------- Play 1 조종 ---------- */
+const hzAnswer = p1 => p1.drawn >= 0 ? `I'm going to ${PLAN[p1.cards[p1.drawn]].phrase}.` : '';
+function speakReveal(p1, dramatic) {
+  const ans = hzAnswer(p1);
+  if (!ans) return;
+  if (!dramatic) return Voice.say(ans, CAST.Hotz);
+  Sfx.play('envelope');
+  setTimeout(() => Sfx.play('drumroll'), 600);
+  setTimeout(() => Voice.say(ans, CAST.Hotz), 2900);
+}
+async function p1Act(action) {
+  if (action === 'p1end' && !confirm('동굴 게임을 끝낼까요? 학생들은 다음 관문(⑥)으로 넘어가요.')) return;
+  const r = await tapi({ action });
+  if (r && r.ok === false && r.error) alert(r.error);
+  if (r && r.p1) {
+    D = D || {};
+    D.p1 = r.p1;
+    if (action === 'p1new') { D.cur = { choices: {}, asked: {}, caught: {} }; Sfx.play('footstep'); }
+    if (action === 'p1draw' && r.p1.status === 'revealed') { lastRevealKey = r.p1.round + ''; speakReveal(r.p1, true); }
+    drawP1();
+  }
+}
+$('#bNew').onclick = () => p1Act('p1new');
+$('#bDraw').onclick = () => p1Act('p1draw');
+$('#bEnd').onclick = () => p1Act('p1end');
+$('#bHz').onclick = () => D && speakReveal(D.p1);
+$('#bBgm').onclick = () => {
+  if (!Bgm.on || !Bgm.el || Bgm.el.paused) { if (!Bgm.on) Bgm.toggle(); Bgm.vol = 0.25; Bgm.play('bgm_cave.mp3'); Bgm.resume();
+    setTimeout(() => { if (Sfx.missing['bgm_cave.mp3']) alert('assets/sfx/bgm_cave.mp3 파일이 아직 없어요.'); }, 800);
+    $('#bBgm').textContent = '🔇 음악 끄기'; }
+  else { Bgm.el.pause(); $('#bBgm').textContent = '🎵 동굴 음악'; }
+};
+$('#bBig').onclick = () => { document.body.classList.toggle('big'); $('#bBig').textContent = document.body.classList.contains('big') ? '↩ 작게 보기' : '🖥 크게 보기'; };
+$('#resetBtn').onclick = async () => {
+  if (!confirm('모든 학생 기록과 Play 1 상태를 지울까요? (되돌릴 수 없어요)')) return;
+  if (!confirm('정말 지울까요? 다른 반 수업을 시작할 때만 지우세요.')) return;
+  await tapi({ action: 'reset' });
+  alert('초기화했어요. 학생들은 화면을 새로고침한 뒤 번호를 다시 고르면 돼요.\n(같은 크롬북을 쓰는 다음 반 학생은 화면 아래 번호를 새로 고르면 됩니다)');
+};
+
+function drawP1() {
+  const p1 = D.p1, cur = D.cur || { choices: {}, asked: {}, caught: {} };
+  const label = { idle: '⏸ 대기 중', choosing: `🕳️ 라운드 ${p1.round} · 학생들이 동굴 고르는 중`, revealed: `✉️ 라운드 ${p1.round} · 공개!`, ended: '🏁 게임 끝 (학생들 ⑥ 관문 진행)' }[p1.status] || p1.status;
+  $('#p1Status').textContent = label;
+  $('#bDraw').disabled = p1.status !== 'choosing';
+  $('#bHz').disabled = p1.status !== 'revealed';
+  const body = $('#p1Body');
+  if (!p1.cards || !p1.cards.length || p1.status === 'idle' && !p1.round) {
+    body.innerHTML = `<p>학생들이 ④ 금고까지 풀고 ⑤ 동굴 앞에서 기다리면 <b>▶ 새 라운드</b>를 눌러 시작하세요.</p>
+      <ol><li>새 라운드 → 학생 화면에 동굴 4개가 나타나요.</li><li>학생은 동굴을 고르고 🎤 <span class="en">What are you going to do this weekend?</span> 라고 물어요 (음성 자동 채점).</li>
+      <li>✉️ 봉투 뽑기 → 호첸플로츠가 TV와 학생 이어폰에서 대답해요.</li><li>그 동굴을 고른 학생은 대답을 따라 말해 ⭐를 얻어요.</li>
+      <li>원하는 만큼 라운드를 반복한 뒤 🏁 게임 끝내기를 누르면 학생들이 ⑥ 관문으로 넘어가요.</li></ol>
+      <p style="color:var(--ink2)">※ Play 1을 하지 않고 넘어가려면 🏁 게임 끝내기만 눌러도 돼요.</p>`;
+    return;
+  }
+  const by = [[], [], [], []];
+  Object.keys(cur.choices).forEach(n => { const c = cur.choices[n]; if (by[c]) by[c].push(Number(n)); });
+  const revealed = p1.status === 'revealed' || (p1.status === 'ended' && p1.drawn >= 0);
+  const asked = Object.values(cur.asked).filter(Boolean).length;
+  const caught = Object.values(cur.caught).filter(Boolean).length;
+  const chosen = Object.keys(cur.choices).length;
+  body.innerHTML = `<div class="caves">${p1.cards.map((id, i) => {
+      const p = PLAN[id]; const cls = revealed ? (i === p1.drawn ? 'hit' : 'dim') : '';
+      return `<div class="cave ${cls}"><span class="num">${i + 1}</span><div class="pe">${p.emoji}${p.sub}</div>
+        <div class="lbl">${p.phrase}</div><div class="cnt">👥 ${by[i].length}명</div>
+        <div class="who notbig">${by[i].sort((a, b) => a - b).map(n => (cur.caught[n] ? '⭐' : '') + n).join(', ')}</div></div>`;
+    }).join('')}</div>
+    ${revealed ? `<div class="answer"><img src="assets/img/thief.jpg" alt="" style="height:1.9em;vertical-align:middle;border-radius:8px;margin-right:10px"><span class="en">${esc(hzAnswer(p1))}</span></div>` : ''}
+    <div class="p1stats notbig"><span>동굴 고른 학생 ${chosen}명</span><span>🎤 묻기 통과 ${asked}명</span>${revealed ? `<span>⭐ 붙잡은 학생 ${caught}명</span>` : ''}</div>`;
+}
+
+/* ---------- 대시보드 ---------- */
+function cellOf(it) {
+  if (!it) return { cls: '', txt: '·' };
+  const h = it.hint ? '💡' : '';
+  if (it.skip && !it.ok) return { cls: 'skip', txt: '⏭' + h };
+  if (it.ok && it.first) return { cls: 'ok', txt: '✅' + h };
+  if (it.ok) return { cls: 're', txt: '🔁' + it.n + h };
+  return { cls: 'bad', txt: '❌' + it.n + h };
+}
+function ago(ms) {
+  if (!ms) return '-';
+  const s = Math.max(0, Math.round((D.now - ms) / 1000));
+  return s < 60 ? s + '초 전' : Math.round(s / 60) + '분 전';
+}
+function draw(d) {
+  D = d;
+  // 공개 순간 TV에서 자동 재생 (다른 기기에서 뽑았을 때 대비)
+  if (d.p1.status === 'revealed' && lastRevealKey !== d.p1.round + '') { lastRevealKey = d.p1.round + ''; speakReveal(d.p1, true); }
+  drawP1();
+  const nums = Object.keys(d.students).map(Number).sort((a, b) => a - b);
+  $('#cJoined').textContent = `접속 ${nums.length}명`;
+  $('#cDone').textContent = `완료 ${nums.filter(n => d.students[n].stage >= 7).length}명`;
+  $('#cTime').textContent = '갱신 ' + new Date().toLocaleTimeString('ko-KR');
+
+  // 많이 틀린 문항
+  const top = Object.keys(d.wrong).sort((a, b) => d.wrong[b] - d.wrong[a]).slice(0, 3);
+  $('#wrongBox').innerHTML = top.length ? top.map(q => {
+    const it = ITEMS.find(x => x.qid === q) || { group: '', title: q };
+    return `<div class="w"><span>${it.group} · ${esc(it.title)}</span><b>${d.wrong[q]}명</b></div>`;
+  }).join('') : '<p style="color:var(--ink2)">아직 없어요.</p>';
+
+  // 관문 분포
+  const dist = {};
+  nums.forEach(n => { const s = d.students[n].stage; dist[s] = (dist[s] || 0) + 1; });
+  $('#distBox').innerHTML = STAGE_NAMES.map((nm, i) => `<span>${nm} <b>${dist[i] || 0}</b></span>`).join('');
+
+  // 표
+  const groups = [];
+  ITEMS.forEach(it => { const g = groups[groups.length - 1]; if (g && g.name === it.group) g.n++; else groups.push({ name: it.group, n: 1 }); });
+  let html = `<thead><tr><th rowspan="2">번호</th><th rowspan="2">지금 관문</th>${groups.map(g => `<th class="g" colspan="${g.n}">${g.name}</th>`).join('')}
+    <th class="g" colspan="2">⑤ 동굴</th><th rowspan="2">자기<br>평가</th><th rowspan="2">마지막<br>활동</th></tr>
+    <tr>${ITEMS.map(it => `<th title="${esc(it.title)}">${it.label}</th>`).join('')}<th title="동굴에서 붙잡은 횟수">⭐</th><th title="묻기 말하기 통과 횟수">🎤</th></tr></thead><tbody>`;
+  nums.forEach(n => {
+    const st = d.students[n], items = d.items[n] || {};
+    const idle = D.now - st.updated > 5 * 60 * 1000 && st.stage < 7;
+    html += `<tr class="${idle ? 'idle' : ''}"><td class="num">${n}</td><td><span class="stg s${st.stage}">${STAGE_NAMES[st.stage] || st.stage}</span></td>`;
+    ITEMS.forEach(it => {
+      const c = cellOf(items[it.qid]);
+      const said = items[it.qid] && items[it.qid].said ? items[it.qid].said : '';
+      html += `<td class="c ${c.cls}" data-n="${n}" data-q="${it.qid}" title="${esc(it.title + (said ? ' · ' + said : ''))}">${c.txt}</td>`;
+    });
+    html += `<td>${d.stars[n] || ''}</td><td>${d.asks[n] || ''}</td><td>${st.stars ? '🍎'.repeat(st.stars) : ''}</td><td>${ago(st.updated)}</td></tr>`;
+  });
+  html += '</tbody>';
+  if (!nums.length) html = '<tr><td style="padding:20px">아직 접속한 학생이 없어요. 학생들에게 주소를 알려 주세요.</td></tr>';
+  $('#tbl').innerHTML = html;
+  $('#tbl').querySelectorAll('td.c').forEach(td => td.onclick = e => showPop(e, td.dataset.n, td.dataset.q));
+}
+function showPop(e, n, q) {
+  const it = (D.items[n] || {})[q], meta = ITEMS.find(x => x.qid === q);
+  const pop = $('#pop');
+  pop.innerHTML = `<b>${n}번 · ${esc(meta.group)}</b><br>${esc(meta.title)}<br>` + (it ?
+    `시도 ${it.n}번 · ${it.ok ? '정답' : it.skip ? '건너뜀' : '아직 오답'}${it.first ? ' (한 번에!)' : ''}${it.hint ? ' · 힌트 사용' : ''}` +
+    (it.said ? `<br>최근 응답: <span class="en">${esc(it.said)}</span>` : '') : '아직 풀지 않았어요.');
+  pop.style.display = 'block';
+  pop.style.left = Math.min(e.clientX + 10, innerWidth - 360) + 'px';
+  pop.style.top = (e.clientY + 12) + 'px';
+}
+document.addEventListener('click', e => { if (!e.target.closest('td.c')) $('#pop').style.display = 'none'; });
+
+if (DEMO) { $('#pw').placeholder = '데모 모드: 아무 값이나 입력'; }
+if (PW) login.call(null, $('#pw').value = PW);
+</script>
+</body>
+</html>
