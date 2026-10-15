@@ -97,6 +97,29 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 .target{background:#fff;border:3px solid var(--leaf2);border-radius:18px;padding:16px;text-align:center;margin:10px 0 14px}
 .target .en{font-size:30px;color:var(--leaf)}
 .target .ko{color:var(--ink2);font-size:16px}
+.tw .w{display:inline-block;color:#a99a86;transition:color .2s}
+.tw .w.hit{color:var(--ok)}
+.tw .w.miss{color:var(--apple);text-decoration:underline wavy;text-underline-offset:6px}
+.tw .w.pop{animation:wpop .35s}
+@keyframes wpop{0%{transform:scale(1)}40%{transform:scale(1.25) translateY(-4px)}100%{transform:scale(1)}}
+/* chant */
+.chant{background:linear-gradient(160deg,#2f6b3b,#24502d);border-radius:20px;padding:22px 18px;color:#fff;text-align:center;position:relative;overflow:hidden}
+.chant .beats{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
+.chant .beats span{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.2);transition:transform .08s}
+.chant .beats span.on{background:var(--gold);transform:scale(1.5)}
+.chant .verse-no{font-family:'Jua';color:#cfe6c8;font-size:16px}
+.chant .call{font-family:'Jua';font-size:24px;color:#ffe9a8;min-height:36px;margin:6px 0}
+.chant .resp{font-family:'Jua';font-size:clamp(30px,5vw,46px);line-height:1.25;margin:6px 0 4px;min-height:60px}
+.chant .resp .cw{display:inline-block;margin:0 4px;color:rgba(255,255,255,.45);transition:color .12s, transform .12s}
+.chant .resp .cw.lit{color:#fff;transform:translateY(-4px) scale(1.08);text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.chant .turn{display:inline-block;font-family:'Jua';font-size:22px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,.12);min-height:42px}
+.chant .turn.you{background:var(--gold);color:var(--ink);animation:pulseTurn .6s infinite alternate}
+@keyframes pulseTurn{to{transform:scale(1.08)}}
+.chant .pic{font-size:54px;line-height:1.1}
+.chant-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.chant-list div{background:#fff;border:2px solid var(--line);border-radius:12px;padding:6px 8px;font-size:14px;text-align:center}
+.chant-list div.done{border-color:var(--ok);background:#eaf6ea}
+.chant-list div.cur{border-color:var(--gold);background:#fff6dc}
 .mic{display:flex;align-items:center;gap:14px;margin:6px auto 0;border:0;border-radius:999px;padding:14px 34px 14px 18px;
   background:var(--apple);color:#fff;font-family:'Jua';font-size:22px;box-shadow:0 5px 0 #8e2519}
 .mic .mic-ico{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:28px}
@@ -201,7 +224,7 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
   <div class="brand">🍎 호첸플로츠를 잡아라!</div>
   <div class="trail" id="trail"></div>
   <div class="hd-right">
-    <span class="pill" id="who">번호 ?</span>
+    <span class="pill" id="who">번호</span>
     <button class="toggle" id="bgmBtn" title="배경음악 켜기/끄기">🎵 음악</button>
     <button class="toggle" id="slowBtn" title="영어를 천천히 들려줘요">🐢 천천히</button>
   </div>
@@ -209,7 +232,7 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 <main id="app"></main>
 <div id="overlay" class="hidden"><div class="inner" id="ovInner"></div></div>
 <div id="toast"></div>
-<script src="api.js?v=3"></script>
+<script src="api.js?v=4"></script>
 <script>
 /* ===================== 상태 ===================== */
 const KEY = 'hz_student';
@@ -352,7 +375,7 @@ function speakTask(el, o) {
   el.innerHTML = `<div class="card"><span class="task-title">${o.title}</span>
     <div class="prompt">${o.prompt}</div>
     ${o.pic ? `<div class="qpic">${o.pic}</div>` : ''}
-    <div class="target"><div class="en">${esc(o.target)}</div><div class="ko">${esc(o.ko || '')}</div></div>
+    <div class="target"><div class="en tw">${targetWords(o.target).map((w, i) => `<span class="w" data-i="${i}">${esc(w.text)}</span>`).join(' ')}</div><div class="ko">${esc(o.ko || '')}</div></div>
     <div class="row" style="justify-content:center;margin-bottom:12px">
       <button class="btn ghost" data-a="model">🔊 먼저 들어 보기</button></div>
     ${typed ? `<div class="hint">이 브라우저는 음성 인식이 안 돼요. (크롬북 크롬에서는 마이크로 말해요) 연습용으로 입력해서 확인해요.</div>
@@ -368,9 +391,20 @@ function speakTask(el, o) {
   c.querySelector('[data-a=model]').onclick = model;
   if (o.autoModel) setTimeout(model, 300);
   const log = (ok, said) => (o.log ? o.log(ok, said, tries) : logTry(o.qid, o.stage ?? S.stage, ok, said));
+  const tw = targetWords(o.target);
+  const paintWords = (text, final) => {
+    const flags = text ? matchedWordFlags(tw, text) : tw.map(() => false);
+    c.querySelectorAll('.tw .w').forEach((sp, i) => {
+      const was = sp.classList.contains('hit');
+      sp.classList.toggle('hit', flags[i]);
+      sp.classList.toggle('miss', !!final && !flags[i]);
+      if (flags[i] && !was) { sp.classList.remove('pop'); void sp.offsetWidth; sp.classList.add('pop'); }
+    });
+  };
   const judge = alts => {
     tries++;
     const r = speechScore(o.target, alts);
+    paintWords(r.said, true);
     heard.innerHTML = alts.length ? `들린 말: <span class="en">“${esc(r.said)}”</span>` : '잘 안 들렸어요. 마이크 가까이에서 또박또박!';
     meter.querySelector('i').style.width = Math.round(r.score * 100) + '%';
     const said = (typed ? '[입력] ' : '') + (r.said || '');
@@ -393,6 +427,7 @@ function speakTask(el, o) {
   if (typed) {
     const inp = c.querySelector('input');
     c.querySelector('[data-a=check]').onclick = () => inp.value.trim() && judge([inp.value]);
+    inp.oninput = () => paintWords(inp.value, false);
     inp.onkeydown = e => { if (e.key === 'Enter' && inp.value.trim()) judge([inp.value]); };
   } else {
     const mic = c.querySelector('[data-a=mic]');
@@ -405,7 +440,8 @@ function speakTask(el, o) {
       try {
         const lvl = c.querySelector('.lvl i');
         const meter = await MicMeter.start(v => { if (lvl) lvl.style.width = Math.round(v * 100) + '%'; });
-        const alts = await listenOnce();
+        paintWords('', false);
+        const alts = await listenOnce(t => paintWords(t, false));
         const peak = meter.stop();
         if (!alts.length && peak >= 0 && peak < 0.02) {
           heard.innerHTML = `🎙 <b>마이크에 소리가 들어오지 않았어요.</b><br>말할 때 아래 막대가 움직이지 않으면 다른 마이크가 선택된 거예요. 선생님께 알려 주세요.<br><small>(지금 마이크: ${esc(meter.label || '알 수 없음')})</small>`;
@@ -467,6 +503,93 @@ const PRACTICE = {
 const Q = 'What are you going to do this weekend?';
 const practiceLines = id => [[PRACTICE[id][0], Q], [PRACTICE[id][1], `I'm going to ${PLAN[id].phrase}.`]];
 
+/* 발자국 찬트: 쿵·짝 박자 + 묻기 → 호첸플로츠 대답 → 우리 차례(따라 하기) */
+const CHANT = [
+  { id: 'stay',  hook: 'Stay home, stay home!' },
+  { id: 'math',  hook: 'Study, study, study math!' },
+  { id: 'clean', hook: 'Clean, clean, clean my room!' },
+  { id: 'camp',  hook: 'Go, go, go camping!' },
+  { id: 'ball',  hook: 'Bounce, bounce, basketball!' },
+  { id: 'grand', hook: 'Grandma, grandpa, here I come!' }
+];
+const CHANT_CALL = 'Hotzenplotz, Hotzenplotz, what are you going to do?';
+function chantStep() {
+  return (el, next) => {
+    let running = false, my = 0;
+    const card = frame(el, '① 발자국 단서 · 찬트', `
+      <div class="prompt">🥁 쿵·짝 박자에 맞춰 호첸플로츠에게 묻고, <b>노란 "우리 차례!"</b>가 나오면 큰 소리로 따라 해요!</div>
+      <div class="chant">
+        <div class="beats">${[0, 1, 2, 3].map(i => `<span data-b="${i}"></span>`).join('')}</div>
+        <div class="verse-no" data-a="vno">준비됐나요?</div>
+        <div class="pic" data-a="pic">🐾</div>
+        <div class="call en" data-a="call"></div>
+        <div class="resp en" data-a="resp">Let's chant!</div>
+        <div class="turn" data-a="turn">▶ 시작을 눌러요</div>
+      </div>
+      <div class="chant-list">${CHANT.map((c, i) => `<div data-v="${i}">${PLAN[c.id].emoji} <span class="en">${esc(c.hook)}</span></div>`).join('')}</div>
+      <div class="row" style="justify-content:space-between;margin-top:16px">
+        <button class="btn" data-a="play">▶ 찬트 시작</button>
+        <button class="btn green" data-a="go" ${S.chantDone ? '' : 'disabled'}>다음 ▶</button></div>`);
+    const $c = q => card.querySelector(q);
+    const dots = card.querySelectorAll('.beats span');
+    const setResp = (text, lit) => {
+      const ws = text.split(' ');
+      $c('[data-a=resp]').innerHTML = ws.map((w, i) => (w === "I'm" && i > 0 ? '<br>' : '') + `<span class="cw ${lit > i ? 'lit' : ''}">${esc(w)}</span>`).join(' ');
+    };
+    const stop = () => { my++; running = false; Beat.stop(); stopAudio(); $c('[data-a=play]').textContent = '▶ 찬트 시작'; };
+    const waitBeats = (k, cb) => new Promise(res => {
+      const id = my; let c = 0;
+      const t = setInterval(() => { if (id !== my) { clearInterval(t); return res(false); } cb && cb(c); if (++c >= k) { clearInterval(t); res(true); } }, Beat.ms);
+    });
+    $c('[data-a=play]').onclick = async () => {
+      if (running) return stop();
+      running = true; const id = ++my;
+      $c('[data-a=play]').textContent = '⏸ 멈춤';
+      const bpm = Voice.slow ? 78 : 96;
+      Beat.start(bpm, n => dots.forEach((d, i) => d.classList.toggle('on', i === n % 4)));
+      await sleep(Beat.ms * 4);
+      for (let v = 0; v < CHANT.length; v++) {
+        if (id !== my) return;
+        const c = CHANT[v], p = PLAN[c.id];
+        const answer = `I'm going to ${p.phrase}!`;
+        card.querySelectorAll('.chant-list div').forEach((d, i) => { d.classList.toggle('cur', i === v); d.classList.toggle('done', i < v); });
+        $c('[data-a=vno]').textContent = `${v + 1}절 / ${CHANT.length}`;
+        $c('[data-a=pic]').textContent = p.emoji + p.sub;
+        // ① 묻기 (다 같이)
+        $c('[data-a=call]').textContent = CHANT_CALL;
+        $c('[data-a=turn]').className = 'turn'; $c('[data-a=turn]').textContent = '🙋 다 같이 물어요!';
+        setResp(c.hook, 0);
+        await sayAs('Linh', CHANT_CALL);
+        if (id !== my) return;
+        // ② 호첸플로츠 대답 (모델)
+        $c('[data-a=turn]').textContent = '🎩 호첸플로츠가 대답해요';
+        setResp(c.hook + ' ' + answer, 99);
+        await Voice.say(c.hook + ' ' + answer, { kind: 'man', pitch: 0.85, rate: 0.95 });
+        if (id !== my) return;
+        // ③ 우리 차례: 박자에 맞춰 단어가 하나씩 켜짐
+        const words = (c.hook + ' ' + answer).split(' ');
+        $c('[data-a=turn]').className = 'turn you'; $c('[data-a=turn]').textContent = '🗣 우리 차례! 크게 따라 해요';
+        setResp(c.hook + ' ' + answer, 0);
+        const beatsForTurn = Math.max(6, Math.ceil(words.length * 0.7));
+        const ok = await waitBeats(beatsForTurn, b => setResp(c.hook + ' ' + answer, Math.ceil((b + 1) / beatsForTurn * words.length)));
+        if (!ok) return;
+        await waitBeats(1);
+      }
+      if (id !== my) return;
+      card.querySelectorAll('.chant-list div').forEach(d => { d.classList.remove('cur'); d.classList.add('done'); });
+      $c('[data-a=vno]').textContent = '끝! 정말 잘했어요 👏';
+      $c('[data-a=call]').textContent = '';
+      $c('[data-a=turn]').className = 'turn'; $c('[data-a=turn]').textContent = '한 번 더 하려면 ▶';
+      setResp("We're going to catch Hotzenplotz!", 99);
+      Sfx.play('pass');
+      stop();
+      S.chantDone = true; save();
+      $c('[data-a=go]').disabled = false;
+    };
+    $c('[data-a=go]').onclick = () => { stop(); next(); };
+  };
+}
+
 const STAGES = {
   /* ① 발자국 단서 — Words + Word Chant */
   1() {
@@ -485,24 +608,7 @@ const STAGES = {
         options: order.slice().sort().map(k => ({ key: k, html: planCard(PLAN[k]) })),
         answer: id, hint: `들린 말: <span class="en">${PLAN[id].phrase}</span>`
       })),
-      (el, next) => {
-        const lines = PLANS.map(p => {
-          const w = p.phrase.split(' ')[0];
-          const cap = w[0].toUpperCase() + w.slice(1);
-          return ['Girl', `${cap}, ${w}, ${p.phrase}!`];
-        });
-        const card = frame(el, '① 발자국 단서 · 찬트', `
-          <div class="prompt">🎵 발자국 찬트! 리듬에 맞춰 함께 따라 불러요.</div>
-          <div class="row" style="margin-bottom:10px"><button class="btn" data-a="play">▶ 찬트 듣고 따라 부르기</button></div>
-          <div class="dlg">${lines.map((l, i) => `<div class="line on" data-i="${i}"><div class="who">${PLANS[i].emoji}</div><div class="bub en">${esc(l[1])}</div></div>`).join('')}</div>
-          <div class="row" style="justify-content:flex-end"><button class="btn green" data-a="go" disabled>다음 ▶</button></div>`);
-        const hl = highlighter(card);
-        card.querySelector('[data-a=play]').onclick = async () => {
-          const done = await playLines(lines.map(l => [l[0], l[1]]), hl);
-          if (done) card.querySelector('[data-a=go]').disabled = false;
-        };
-        card.querySelector('[data-a=go]').onclick = () => { stopAudio(); next(); };
-      },
+      chantStep(),
       ...speakIds.map((id, i) => speakStep({
         qid: 'S1-' + (i + 1), title: `① 발자국 단서 · 말하기 ${i + 1}/2`,
         prompt: '🎤 그림을 보고 호첸플로츠를 흉내 내어 말해 봐요!',
@@ -821,7 +927,7 @@ function renderHeader() {
     return (i ? `<span class="seg ${S.stage >= st ? 'done' : ''}"></span>` : '') +
       `<span class="n ${cls}" title="${STAGE_NAMES[st]}">${ic}</span>`;
   }).join('');
-  $('#who').textContent = S.num ? `${S.num}번 · 🗺️ ${S.clues}/5 · ⭐ ${S.stars}` : '번호 ?';
+  $('#who').textContent = S.num ? `${S.num}번 · 🗺️ ${S.clues}/5 · ⭐ ${S.stars}` : '번호';
   $('#slowBtn').classList.toggle('on', Voice.slow);
   $('#bgmBtn').classList.toggle('on', Bgm.on);
 }
@@ -830,6 +936,7 @@ function pickBgm() {
   if (S.num) Bgm.play(caveMode ? 'bgm_cave.mp3' : 'bgm_orchard.mp3');
 }
 function render() {
+  Beat.stop();
   renderHeader();
   pickBgm();
   const el = $('#app');

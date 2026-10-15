@@ -2,7 +2,7 @@
  *  설정: Apps Script 웹 앱 주소(…/exec)를 따옴표 안에 붙여 넣으세요.
  *  비워 두면 "데모 모드"로 동작합니다 (이 컴퓨터 브라우저 안에서만 저장).
  * ===================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzCgtrcbRj0Z3Xbx0YG1B_Bk3rR69igWVePUdhLGbX6xVdz00PADcRcL0FuNSdNIkIWcQ/exec';
+const API_URL = '';
 /* ===================================================================== */
 
 const DEMO = !API_URL;
@@ -234,7 +234,7 @@ function sayAs(who, text) { return Voice.say(text, CAST[who] || {}); }
 
 /* ---------- 크롬 음성 인식 + 자동 채점 ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-function listenOnce() {
+function listenOnce(onLive) {
   return new Promise((resolve, reject) => {
     const r = new SR();
     r.lang = 'en-US';
@@ -247,6 +247,7 @@ function listenOnce() {
         if (res.isFinal) finals = Array.from(res).map(a => a.transcript);
         else interim = res[0].transcript;
       }
+      onLive && onLive(((finals ? finals[0] : '') + ' ' + interim).trim());
     };
     r.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') reject(e.error); };
     r.onend = () => resolve(finals || (interim ? [interim] : []));
@@ -432,4 +433,44 @@ const Bgm = {
     if (this.on) this.play(this.cur); else if (this.el) this.el.pause();
     return this.on;
   }
+};
+
+
+/* 목표 문장을 단어별로 나누고, 들린 말과 맞춰 어떤 단어를 말했는지 표시 */
+function targetWords(target) {
+  return target.split(/\s+/).filter(Boolean).map(w => ({ text: w, toks: normWords(w) }));
+}
+function matchedWordFlags(words, heardText) {
+  const heard = normWords(heardText);
+  const flat = [];
+  words.forEach((w, wi) => w.toks.forEach(t => flat.push({ t, wi })));
+  const hit = new Array(flat.length).fill(false);
+  let j = 0;
+  heard.forEach(h => {
+    for (let k = j; k < Math.min(flat.length, j + 3); k++) {
+      if (flat[k].t === h) { hit[k] = true; j = k + 1; return; }
+    }
+  });
+  return words.map((w, wi) => {
+    const idx = flat.map((f, k) => f.wi === wi ? k : -1).filter(k => k >= 0);
+    return idx.length > 0 && idx.every(k => hit[k]);
+  });
+}
+
+/* 찬트 박자 (쿵 · 짝) */
+const Beat = {
+  timer: null, n: 0, ms: 600, onBeat: null,
+  start(bpm, onBeat) {
+    this.stop(); this.ms = Math.round(60000 / bpm); this.n = 0; this.onBeat = onBeat;
+    const tick = () => {
+      const b = this.n % 4;
+      if (b === 0 || b === 2) Sfx.tone(95, 0, 0.18, { slideTo: 45, vol: 0.35 });
+      else { Sfx.noise(0, 0.09, { type: 'highpass', freq: 1800, vol: 0.18 }); }
+      if (b === 3) Sfx.noise(0.0, 0.05, { type: 'highpass', freq: 6000, vol: 0.06 });
+      this.onBeat && this.onBeat(this.n);
+      this.n++;
+    };
+    tick(); this.timer = setInterval(tick, this.ms);
+  },
+  stop() { clearInterval(this.timer); this.timer = null; }
 };
