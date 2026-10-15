@@ -201,6 +201,8 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
 /* toast + confetti */
+#teacherLink{position:fixed;right:12px;bottom:10px;z-index:30;font-size:13px;color:var(--ink2);background:rgba(255,250,240,.9);border:1px solid var(--line);border-radius:999px;padding:4px 12px;text-decoration:none}
+#teacherLink:hover{color:var(--apple);border-color:var(--apple)}
 #toast{position:fixed;left:50%;top:84px;transform:translateX(-50%) translateY(-30px);opacity:0;z-index:60;
   background:var(--ink);color:#fff;padding:10px 20px;border-radius:999px;font-family:'Jua';font-size:19px;transition:.3s;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -231,6 +233,7 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 </header>
 <main id="app"></main>
 <div id="overlay" class="hidden"><div class="inner" id="ovInner"></div></div>
+<a id="teacherLink" href="teacher.html" title="교사용 화면">👩‍🏫 교사용</a>
 <div id="toast"></div>
 <script src="api.js?v=5"></script>
 <script>
