@@ -238,16 +238,51 @@ function listenOnce() {
   return new Promise((resolve, reject) => {
     const r = new SR();
     r.lang = 'en-US';
-    r.interimResults = false;
+    r.interimResults = true;      // 마지막 확정이 안 와도 중간 결과를 살려 씀
     r.maxAlternatives = 5;
-    let got = null;
-    r.onresult = e => { got = Array.from(e.results[0]).map(a => a.transcript); };
+    let finals = null, interim = '';
+    r.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (res.isFinal) finals = Array.from(res).map(a => a.transcript);
+        else interim = res[0].transcript;
+      }
+    };
     r.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') reject(e.error); };
-    r.onend = () => resolve(got || []);
+    r.onend = () => resolve(finals || (interim ? [interim] : []));
     try { r.start(); } catch (e) { reject('start'); }
     setTimeout(() => { try { r.stop(); } catch (e) {} }, 9000);
   });
 }
+/* 마이크에 소리가 실제로 들어오는지 재는 막대 */
+const MicMeter = {
+  async start(onLevel) {
+    let stream = null, ctx = null, timer = null, peak = 0;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const an = ctx.createAnalyser(); an.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Float32Array(an.fftSize);
+      timer = setInterval(() => {
+        an.getFloatTimeDomainData(buf);
+        let p = 0; for (const v of buf) p = Math.max(p, Math.abs(v));
+        peak = Math.max(peak, p);
+        onLevel && onLevel(Math.min(1, p * 4));
+      }, 80);
+    } catch (e) { peak = -1; }
+    return {
+      stop() {
+        clearInterval(timer);
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        if (ctx) ctx.close();
+        onLevel && onLevel(0);
+        return peak;   // -1: 잴 수 없음
+      },
+      label: stream ? stream.getAudioTracks()[0].label : ''
+    };
+  }
+};
 function normWords(s) {
   s = ' ' + String(s).toLowerCase().replace(/[’`]/g, "'") + ' ';
   s = s.replace(/\bi'm\b/g, 'i am').replace(/\bwe're\b/g, 'we are').replace(/\bthat's\b/g, 'that is')
