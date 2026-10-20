@@ -11,6 +11,8 @@
  *    → [배포] → 권한 허용 → 나오는 '웹 앱 URL'(…/exec)을 복사해요.
  * 5. 그 URL을 common.js 맨 위 API_URL 에 넣으면 끝!
  *
+ * 지금 연결된 시트: 선생님 구글 드라이브의 '장난감 공장 기록' (Apps Script 프로젝트 '장난감 공장 서버')
+ *
  * 교사용 화면 비밀번호는 아래 PASSWORD 를 바꾸면 돼요.
  */
 const PASSWORD = '1234';
@@ -115,4 +117,9 @@ function dash_() {
     if (!out[num][r[2]]) out[num][r[2]] = { a: String(r[3]), ok: r[4] === 'O', t: t };
   });
   return { students: students, ans: out, now: Date.now() };
+}
+
+/* 처음 한 번 실행해서 시트 탭을 만들고 권한을 허용하는 용도 */
+function setup() {
+  sheet_('학생', STU_HEAD); sheet_('답안', ANS_HEAD); sid_();
 }

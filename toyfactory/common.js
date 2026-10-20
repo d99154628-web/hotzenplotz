@@ -4,7 +4,7 @@
    ========================================================= */
 
 /* 구글 Apps Script 웹 앱 주소 (배포 후 여기에 붙여 넣기). 비어 있으면 데모 모드 */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzYpydkW6MO2lPKd92iWmjnePHC_UL45muyx22x0AEqQ6bhJItJw5uQbkGXmOKTzh8_/exec';
 const DEMO = !API_URL;
 
 /* ---------- 주말 계획 (교과서 어휘) ---------- */
