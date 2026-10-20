@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>토이랜드 장난감 공장</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=East+Sea+Dokdo&family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kirang+Haerang&family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
 <style>
 /* 달밤 장난감 공장: 어두운 남보라 바탕 + 촛불 주황 + 꿰맨 천 테두리. 장면마다 배경 그림이 뒤에 깔림 */
 :root{
@@ -16,7 +16,7 @@
   /* 예전 이름 (아래 규칙과 호환) */
   --paper:var(--panel); --ink2:var(--fog); --pink:var(--candle); --pinkd:var(--candled); --mint:var(--moss); --mintd:var(--mossd);
   --butter:var(--candle); --butterd:var(--candled); --grape:var(--plum); --graped:var(--plumd);
-  --dokdo:'East Sea Dokdo','Jua',cursive; --jua:'Jua','Gowun Dodum',sans-serif; --en:'Fredoka','Jua',sans-serif;
+  --dokdo:'Kirang Haerang','Jua',cursive; --jua:'Jua','Gowun Dodum',sans-serif; --en:'Fredoka','Jua',sans-serif;
   --scene:none;
   color-scheme:dark;
 }
@@ -32,12 +32,15 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--candle);outline
 header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 16px;
   background:rgba(14,11,28,.92);backdrop-filter:blur(6px);border-bottom:2px dashed rgba(255,169,77,.35)}
 .brand{font-family:var(--dokdo);font-size:30px;color:var(--candle);white-space:nowrap;line-height:1}
-.belt{flex:1;display:flex;gap:10px;justify-content:center;min-width:260px}
+.belt{flex:1;display:flex;gap:6px;justify-content:center;min-width:260px;flex-wrap:wrap}
 .belt .rm{display:flex;align-items:center;gap:3px;background:var(--panel2);border-radius:999px;padding:3px 8px;border:1px solid var(--line)}
-.belt .rm .ic{font-size:15px;margin-right:2px;filter:grayscale(1);opacity:.45}
-.belt .rm.on .ic,.belt .rm.done .ic{filter:none;opacity:1}
+.belt .rm .ic{font-size:15px}
+.belt .rm .rl{font-family:var(--jua);font-size:14px;margin:0 4px 0 2px;color:var(--fog);white-space:nowrap}
+.belt .rm{opacity:.6}
+.belt .rm.on,.belt .rm.done{opacity:1}
+.belt .rm.on .rl{color:var(--candle)}
 .belt .rm.on{border-color:var(--candle)}
-.belt .bx{width:12px;height:12px;border-radius:3px;background:#3A3166}
+.belt .bx{width:10px;height:10px;border-radius:3px;background:#3A3166;flex:none}
 .belt .bx.f{background:#B98A5A;box-shadow:inset 0 -3px 0 #87603A}
 .belt .bx.c{background:var(--candle);box-shadow:0 0 8px var(--candle);animation:pulse 1s infinite}
 @keyframes pulse{50%{transform:scale(1.25)}}
@@ -67,16 +70,20 @@ b{color:var(--candle);font-weight:700}
 .center{text-align:center}
 .mt{margin-top:16px}
 
-/* 장난감 얼굴 (사진) */
-.toy{width:78px;height:78px;border-radius:50%;background:var(--panel2);position:relative;flex:none;animation:bob 2.6s ease-in-out infinite;
-  border:3px solid #5A4C99;box-shadow:0 0 0 3px var(--night),0 6px 14px rgba(0,0,0,.5)}
-.toy img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
-.toy.sm{width:54px;height:54px;border-width:2px}
-.toy.lg{width:124px;height:124px;border-width:4px}
-.toy .nm{position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);background:var(--parch);color:var(--ink);border-radius:6px;padding:0 8px;font-family:var(--en);font-weight:600;font-size:13px;white-space:nowrap;box-shadow:0 2px 0 rgba(0,0,0,.4)}
-.toy.talk{animation:talk .35s ease-in-out infinite;border-color:var(--candle);box-shadow:0 0 0 3px var(--night),0 0 22px var(--candle)}
+/* 장난감 (배경을 지운 인형) */
+.toy{height:140px;min-width:54px;display:flex;align-items:flex-end;justify-content:center;position:relative;flex:none;animation:bob 2.6s ease-in-out infinite;transform-origin:50% 100%}
+.toy img{height:100%;width:auto;max-width:170px;object-fit:contain;display:block;filter:drop-shadow(0 10px 8px rgba(0,0,0,.55))}
+.toy::before{content:'';position:absolute;bottom:-4px;left:50%;width:70%;height:10px;transform:translateX(-50%);background:radial-gradient(ellipse,rgba(0,0,0,.45),transparent 70%)}
+.toy.sm{height:46px;min-width:30px}
+.toy.sm img{max-width:60px;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
+.toy.sm::before{display:none}
+.toy.lg{height:210px}
+.toy.lg img{max-width:260px}
+.toy .nm{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);background:var(--parch);color:var(--ink);border-radius:6px;padding:0 8px;font-family:var(--en);font-weight:600;font-size:13px;white-space:nowrap;box-shadow:0 2px 0 rgba(0,0,0,.4);z-index:1}
+.toy.talk{animation:talk .4s ease-in-out infinite}
+.toy.talk img{filter:drop-shadow(0 0 12px rgba(255,169,77,.95)) drop-shadow(0 10px 8px rgba(0,0,0,.5))}
 @keyframes bob{50%{transform:translateY(-4px)}}
-@keyframes talk{50%{transform:scale(1.08) rotate(-3deg)}}
+@keyframes talk{50%{transform:scale(1.07) rotate(-3deg)}}
 
 /* 공장장 말 */
 .boss{display:flex;gap:18px;align-items:flex-start;position:relative;z-index:1}
@@ -88,15 +95,25 @@ b{color:var(--candle);font-weight:700}
 .shot{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:16/9;max-width:100%;background:#0B0918;box-shadow:0 10px 30px rgba(0,0,0,.5);margin-bottom:18px}
 .shot>img{width:100%;height:100%;object-fit:cover;display:block;animation:kb 18s ease-in-out infinite alternate}
 .shot .vig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(10,8,20,.75))}
-.shot .body{position:absolute;bottom:0;right:4%;height:92%;width:auto;border-radius:14px;box-shadow:0 0 0 4px var(--night);animation:none}
+.shot .body{position:absolute;bottom:3%;right:7%;height:90%;width:auto;animation:none;filter:drop-shadow(0 14px 14px rgba(0,0,0,.7)) drop-shadow(0 0 18px rgba(255,169,77,.25))}
 .shot .over{position:absolute;left:0;right:0;bottom:0;padding:18px 22px;background:linear-gradient(transparent,rgba(10,8,20,.85))}
 @keyframes kb{from{transform:scale(1)}to{transform:scale(1.07) translate(-1%,-1%)}}
 .shot.shake{animation:shake .12s 6}
 
 /* ---------- 시작 화면 ---------- */
 .hero{text-align:center}
-.hero .ttl{font-family:var(--dokdo);font-size:64px;color:var(--candle);line-height:.95;text-shadow:0 3px 0 #3A1C06,0 0 26px rgba(255,169,77,.45)}
-.hero .sub{font-family:var(--en);font-size:19px;color:var(--moon);margin-top:6px;opacity:.9}
+.hero.over{padding:18px 22px 22px;background:linear-gradient(transparent,rgba(12,9,26,.55) 30%,rgba(12,9,26,.9))}
+.ribbon{display:inline-block;background:var(--parch);color:var(--ink);font-family:var(--jua);font-size:21px;padding:7px 34px 5px;transform:rotate(-2deg);
+  clip-path:polygon(0 0,100% 0,95% 50%,100% 100%,0 100%,5% 50%);box-shadow:inset 0 -4px 0 var(--parch2)}
+.ribbon span{display:inline-block;border-top:2px dashed rgba(43,33,64,.35);border-bottom:2px dashed rgba(43,33,64,.35);padding:2px 6px}
+.hero .ttl{font-family:var(--dokdo);font-weight:400;font-size:88px;line-height:1;margin:10px 0 8px;letter-spacing:1px}
+.ttl span{display:inline-block;color:#F4EAD4;transform:rotate(var(--r)) translateY(var(--y));animation:wob 3.2s ease-in-out infinite;animation-delay:var(--d);
+  text-shadow:0 5px 0 #2B2140,3px 3px 0 #2B2140,-3px 3px 0 #2B2140,3px -2px 0 #2B2140,-3px -2px 0 #2B2140,0 0 30px rgba(255,169,77,.55)}
+.ttl span.c{color:var(--candle)}
+.ttl span.sp{width:.35em}
+@keyframes wob{50%{transform:rotate(calc(var(--r) * -1)) translateY(var(--y))}}
+.hero .sub{display:inline-block;font-family:var(--en);font-size:18px;color:var(--moon);background:rgba(19,15,36,.7);border:1px solid var(--line);border-radius:999px;padding:4px 16px}
+@media (prefers-reduced-motion:reduce){.ttl span{animation:none}}
 .namebox{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:16px;position:relative;z-index:1}
 .namebox label{font-family:var(--jua);font-size:22px}
 .namebox input{width:260px;font-family:var(--jua);font-size:24px;padding:10px 16px;border:2px solid var(--line);border-radius:14px;background:var(--parch);text-align:center;color:var(--ink)}
@@ -202,9 +219,9 @@ b{color:var(--candle);font-weight:700}
 .pk .bx{position:absolute;bottom:0;left:20px;width:160px;height:108px;background:#A97C52;border-radius:8px;box-shadow:inset 0 -12px 0 #7E5933;background-image:repeating-linear-gradient(90deg,transparent 0 30px,rgba(0,0,0,.08) 30px 32px)}
 .pk .bx:after{content:'';position:absolute;left:50%;top:0;bottom:0;width:24px;transform:translateX(-50%);background:#7A4FA8;box-shadow:inset 0 0 0 2px rgba(255,255,255,.15)}
 .pk .lid{position:absolute;left:10px;width:180px;height:32px;background:#BD9064;border-radius:8px;top:-70px;animation:lid .6s .35s forwards;box-shadow:inset 0 -6px 0 #946A40}
-.pk .item{position:absolute;left:50%;top:-40px;transform:translateX(-50%);width:86px;height:86px;border-radius:50%;overflow:hidden;border:3px solid var(--parch);animation:drop .4s forwards}
-.pk .item img{width:100%;height:100%;object-fit:cover}
-@keyframes drop{to{top:56px}}
+.pk .item{position:absolute;left:50%;top:-60px;transform:translateX(-50%);height:110px;animation:drop .4s forwards}
+.pk .item img{height:100%;width:auto;filter:drop-shadow(0 6px 6px rgba(0,0,0,.6))}
+@keyframes drop{to{top:30px}}
 @keyframes lid{to{top:34px}}
 .pk .msg{font-family:var(--dokdo);font-size:46px;color:var(--candle);margin-top:14px;opacity:0;animation:fadeup .3s .8s forwards;text-shadow:0 0 18px rgba(255,169,77,.5)}
 @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -273,7 +290,8 @@ b{color:var(--candle);font-weight:700}
   .opts.txt{grid-template-columns:1fr}
   .items{grid-template-columns:1fr}
   .nums{grid-template-columns:repeat(6,1fr)}
-  .hero .ttl{font-size:44px}
+  .hero .ttl{font-size:52px}
+  .ribbon{font-size:16px}
   .belt{order:3;min-width:100%}
   .tag{flex-wrap:wrap}
   .door .sign{font-size:30px}
@@ -296,7 +314,7 @@ b{color:var(--candle);font-weight:700}
 <div class="conv"><span>🎁</span></div>
 <div id="toast"></div>
 <a class="tlink" href="teacher.html">👩‍🏫 교사용</a>
-<script src="common.js?v=4"></script>
+<script src="common.js?v=5"></script>
 <script>
 /* ===================== 상태 ===================== */
 const KEY = 'tf_student';
@@ -308,7 +326,7 @@ const $ = s => document.querySelector(s);
 function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1900); }
 function toyHTML(id, cls = '', withName = true) {
   const t = TOYS[id];
-  return `<div class="toy ${cls}" data-toy="${id}"><img src="${IMG}${t.img}.jpg" alt="${esc(t.en)}" draggable="false">${withName ? `<span class="nm">${esc(t.en)}</span>` : ''}</div>`;
+  return `<div class="toy ${cls}" data-toy="${id}"><img src="${toySrc(id)}" alt="${esc(t.en)}" draggable="false">${withName ? `<span class="nm">${esc(t.en)}</span>` : ''}</div>`;
 }
 /* 장면마다 뒤에 까는 배경 그림 */
 function setScene(name) { document.body.style.setProperty('--scene', name ? `url(${IMG}${name}.jpg)` : 'none'); }
@@ -345,7 +363,7 @@ function renderHeader() {
     const qs = Q.map((q, i) => i).filter(i => Q[i].room === ri);
     const on = cur >= 0 && Q[Math.min(cur, 19)].room === ri && cur < 20;
     const done = qs.every(i => i < S.qi);
-    return `<span class="rm ${on ? 'on' : ''} ${done ? 'done' : ''}" title="${r.name}"><span class="ic">${r.icon}</span>${qs.map(i => `<i class="bx ${i < S.qi ? 'f' : (i === cur ? 'c' : '')}"></i>`).join('')}</span>`;
+    return `<span class="rm ${on ? 'on' : ''} ${done ? 'done' : ''}" title="${r.name}"><span class="ic">${r.icon}</span><span class="rl">${r.name.replace(' 작업실', '')}</span>${qs.map(i => `<i class="bx ${i < S.qi ? 'f' : (i === cur ? 'c' : '')}"></i>`).join('')}</span>`;
   }).join('');
   $('#musicBtn').classList.toggle('off', !Music.on);
   $('#slowBtn').classList.toggle('off', !Voice.slow);
@@ -366,11 +384,17 @@ function render() {
 }
 
 /* ===================== 시작 ===================== */
+/* 삐뚤빼뚤 인형극 글자: 글자마다 조금씩 기울이고 흔들기 */
+function wonky(t) {
+  const R = [-6, 4, -3, 7, -5, 3, -7, 5, -2, 6], Y = [0, -4, 3, -2, 4, -3, 2, -5, 3, -1];
+  return [...t].map((c, i) => c === ' ' ? '<span class="sp"> </span>'
+    : `<span class="${i % 4 === 1 ? 'c' : ''}" style="--r:${R[i % 10]}deg;--y:${Y[i % 10]}px;--d:${(i * 0.17).toFixed(2)}s">${c}</span>`).join('');
+}
 function cleanName(v) { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 12); }
 function startScreen(el) {
   setScene('bg_title');
   el.innerHTML = `<div class="card">
-    ${shot('bg_title', `<div class="over hero"><div class="ttl">토이랜드 장난감 공장의<br>뒤죽박죽 주말 계획!</div><div class="sub">What are you going to do this weekend?</div></div>`)}
+    ${shot('bg_title', `<div class="over hero"><div class="ribbon"><span>🧸 토이랜드 장난감 공장의</span></div><h1 class="ttl">${wonky('뒤죽박죽 주말 계획!')}</h1><div class="sub">What are you going to do this weekend?</div></div>`)}
     <p class="center mt">🎧 이어폰을 꽂고, <b>내 이름</b>을 쓴 다음 아래에서 <b>내 번호</b>를 눌러요.</p>
     <div class="namebox"><label for="nameIn">✏️ 내 이름</label><input id="nameIn" maxlength="12" autocomplete="off" placeholder="예) 김하나"></div>
     <div class="nums">${Array.from({ length: 40 }, (_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('')}</div>
@@ -406,7 +430,7 @@ function storyScreen(el) {
     const s = STORY[i];
     setScene(s.img);
     el.innerHTML = `<div class="card">
-      ${shot(s.img, s.body ? `<img class="body" src="${IMG}${s.body}.jpg" alt="테디 공장장">` : '', s.cls)}
+      ${shot(s.img, s.body ? `<img class="body" src="${toySrc('boss')}" alt="테디 공장장">` : '', s.cls)}
       <div class="story-text">${s.text}</div>
       <div class="row mt" style="justify-content:space-between">
         <div>${s.en ? `<button class="btn ghost" data-a="hear">🔊 영어로 듣기</button>` : ''}</div>
@@ -458,8 +482,9 @@ function questionScreen(el, q) {
 
   if (q.kind === 'listen') {
     body = `<div class="speakers">${q.lines.map((l, i) => `<div class="spk" data-line="${i}">${toyHTML(l[0])}<div class="mute">🔊 ···</div></div>`).join('')}</div>
+      <p class="hint" style="margin-top:4px">🎧 듣기 문제라 말풍선 글자는 숨겨 두었어요. 잘 들어 보세요!</p>
       <div class="listenbar"><button class="btn sky" data-a="play">🔊 다시 듣기</button></div>
-      ${q.before ? `<div class="tag" style="margin-top:6px"><div class="pic"><img src="${IMG}penguins_body.jpg" alt="펭귄 삼총사"></div>${sentence('fill')}</div>` : ''}
+      ${q.before ? `<div class="tag" style="margin-top:6px"><div class="pic"><img src="${IMG}toy_penguins.webp" alt="펭귄 삼총사" style="object-fit:contain;background:radial-gradient(circle,#5A4C99,#2A2350)"></div>${sentence('fill')}</div>` : ''}
       ${optsHTML()}`;
   } else if (q.kind === 'bubble') {
     body = `<div class="chat">${q.bubbles.map((b, i) => {
@@ -544,7 +569,7 @@ function questionScreen(el, q) {
 }
 function packAnim(toy) {
   const p = $('#pack');
-  $('#packItem').innerHTML = `<img src="${IMG}${(TOYS[toy] || TOYS.boss).img}.jpg" alt="">`;
+  $('#packItem').innerHTML = `<img src="${toySrc(toy)}" alt="">`;
   p.querySelectorAll('.item,.lid,.msg').forEach(e => { e.style.animation = 'none'; void e.offsetWidth; e.style.animation = ''; });
   p.classList.add('show'); Sfx.play('box');
   setTimeout(() => { p.classList.remove('show'); render(); }, 1500);

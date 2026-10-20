@@ -21,26 +21,27 @@ const PLANS = {
 /* ---------- 그림 ---------- */
 const IMG = 'assets/img/';
 function planImg(id) { return `<img src="${IMG}plan_${id}.jpg" alt="${PLANS[id].ko}" draggable="false">`; }
+function toySrc(id) { return IMG + (TOYS[id] || TOYS.boss).img + '.webp'; }
 function preloadImages() {
-  const list = ['bg_title', 'bg_night', 'bg_boom', 'bg_room1', 'bg_room2', 'bg_room3', 'bg_room4', 'bg_room5', 'bg_finale', 'boss_body', 'penguins_body']
-    .concat(Object.keys(PLANS).map(k => 'plan_' + k), Object.keys(TOYS).map(k => TOYS[k].img));
-  list.forEach(n => { const i = new Image(); i.src = IMG + n + '.jpg'; });
+  ['bg_title', 'bg_night', 'bg_boom', 'bg_room1', 'bg_room2', 'bg_room3', 'bg_room4', 'bg_room5', 'bg_finale']
+    .concat(Object.keys(PLANS).map(k => 'plan_' + k)).forEach(n => { const i = new Image(); i.src = IMG + n + '.jpg'; });
+  Object.keys(TOYS).concat(['penguins']).forEach(k => { const i = new Image(); i.src = IMG + 'toy_' + k + '.webp'; });
 }
 
 /* ---------- 등장 장난감 ---------- */
 const TOYS = {
-  boss:  { img: 'boss', en: 'Teddy',  ko: '테디 공장장', face: '🧸', bg: '#FFE3B8', voice: { kind: 'man',   pitch: 0.8,  rate: 0.9 } },
-  bunny: { img: 'bunny', en: 'Bonny',  ko: '보니',       face: '🐰', bg: '#FFD6E4', voice: { kind: 'girl',  pitch: 1.45 } },
-  robo:  { img: 'robo', en: 'Robo',   ko: '로보',       face: '🤖', bg: '#D4E8FF', voice: { kind: 'man',   pitch: 0.55, rate: 0.85 } },
-  mimi:  { img: 'mimi', en: 'Mimi',   ko: '미미',       face: '🪆', bg: '#FFD9D0', voice: { kind: 'girl',  pitch: 1.25 } },
-  dino:  { img: 'dino', en: 'Dino',   ko: '디노',       face: '🦖', bg: '#D3F5DF', voice: { kind: 'boy',   pitch: 0.8 } },
-  momo:  { img: 'momo', en: 'Momo',   ko: '모모',       face: '🐵', bg: '#F5E1C8', voice: { kind: 'boy',   pitch: 1.35 } },
-  choo:  { img: 'choo', en: 'Choo',   ko: '추추',       face: '🚂', bg: '#E5DCFF', voice: { kind: 'man',   pitch: 1.0 } },
-  duck:  { img: 'duck', en: 'Duckie', ko: '더키',       face: '🐥', bg: '#FFF3B0', voice: { kind: 'woman', pitch: 1.5 } },
-  pen:   { img: 'pen', en: 'Pen',    ko: '펜',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'boy',   pitch: 1.3 } },
-  pin:   { img: 'pin', en: 'Pin',    ko: '핀',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'girl',  pitch: 1.3 } },
-  pon:   { img: 'pon', en: 'Pon',    ko: '폰',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'boy',   pitch: 0.95 } },
-  kitty: { img: 'kitty', en: 'Kitty',  ko: '키티',       face: '🐱', bg: '#FFE6F2', voice: { kind: 'girl',  pitch: 1.2 } }
+  boss:  { img: 'toy_boss', en: 'Teddy',  ko: '테디 공장장', face: '🧸', bg: '#FFE3B8', voice: { kind: 'man',   pitch: 0.8,  rate: 0.9 } },
+  bunny: { img: 'toy_bunny', en: 'Bonny',  ko: '보니',       face: '🐰', bg: '#FFD6E4', voice: { kind: 'girl',  pitch: 1.45 } },
+  robo:  { img: 'toy_robo', en: 'Robo',   ko: '로보',       face: '🤖', bg: '#D4E8FF', voice: { kind: 'man',   pitch: 0.55, rate: 0.85 } },
+  mimi:  { img: 'toy_mimi', en: 'Mimi',   ko: '미미',       face: '🪆', bg: '#FFD9D0', voice: { kind: 'girl',  pitch: 1.25 } },
+  dino:  { img: 'toy_dino', en: 'Dino',   ko: '디노',       face: '🦖', bg: '#D3F5DF', voice: { kind: 'boy',   pitch: 0.8 } },
+  momo:  { img: 'toy_momo', en: 'Momo',   ko: '모모',       face: '🐵', bg: '#F5E1C8', voice: { kind: 'boy',   pitch: 1.35 } },
+  choo:  { img: 'toy_choo', en: 'Choo',   ko: '추추',       face: '🚂', bg: '#E5DCFF', voice: { kind: 'man',   pitch: 1.0 } },
+  duck:  { img: 'toy_duck', en: 'Duckie', ko: '더키',       face: '🐥', bg: '#FFF3B0', voice: { kind: 'woman', pitch: 1.5 } },
+  pen:   { img: 'toy_pen', en: 'Pen',    ko: '펜',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'boy',   pitch: 1.3 } },
+  pin:   { img: 'toy_pin', en: 'Pin',    ko: '핀',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'girl',  pitch: 1.3 } },
+  pon:   { img: 'toy_pon', en: 'Pon',    ko: '폰',         face: '🐧', bg: '#DDF3FF', voice: { kind: 'boy',   pitch: 0.95 } },
+  kitty: { img: 'toy_kitty', en: 'Kitty',  ko: '키티',       face: '🐱', bg: '#FFE6F2', voice: { kind: 'girl',  pitch: 1.2 } }
 };
 
 /* ---------- 작업실 (스토리 단계) ---------- */
