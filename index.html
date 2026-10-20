@@ -151,6 +151,12 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 .nums{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;margin-top:14px}
 .nums button{border:2px solid var(--line);background:#fff;border-radius:12px;padding:8px 0;font-family:'Jua';font-size:20px;box-shadow:0 3px 0 var(--line)}
 .nums button:hover{border-color:var(--apple);color:var(--apple)}
+.namebox{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.namebox label{font-family:'Jua';font-size:20px}
+.namebox input{flex:1;min-width:160px;font-family:'Jua';font-size:22px;padding:10px 14px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.namebox input:focus{outline:none;border-color:var(--apple)}
+.namebox input.need{border-color:#e0533d;animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 
 /* order puzzle */
 .slots{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:12px 0}
@@ -240,7 +246,7 @@ main{max-width:980px;margin:0 auto;padding:22px 18px 60px}
 /* ===================== 상태 ===================== */
 const KEY = 'hz_student';
 let S = load();
-function fresh() { return { num: 0, stage: 0, step: 0, items: {}, hint: {}, p1: {}, stars: 0, clues: 0, selfStars: 0, subs: false }; }
+function fresh() { return { num: 0, name: '', stage: 0, step: 0, items: {}, hint: {}, p1: {}, stars: 0, clues: 0, selfStars: 0, subs: false }; }
 function load() { try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { return fresh(); } }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 const $ = s => document.querySelector(s);
@@ -860,20 +866,42 @@ const STAGES = {
 };
 
 /* ===================== 특수 화면 ===================== */
+function cleanName(v) { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 12); }
+function sendName() { SendQueue.push({ action: 'log', num: S.num, stage: 0, qid: 'NAME', ok: true, tries: 1, hint: false, said: S.name }); }
 function numberScreen(el) {
   el.innerHTML = `<div class="card">
     <div class="story"><div class="art paper"><img class="fig" src="assets/img/kids.jpg" alt="탐, 린, 하나"></div>
     <div><h2>호첸플로츠를 잡아라!</h2>
     <p>탐, 린, 하나와 함께 <b>사라진 사과피자 레시피</b>를 되찾으러 가요.</p>
-    <p>🎧 이어폰을 꽂고, 아래에서 <b>내 번호</b>를 눌러요.</p></div></div>
+    <p>🎧 이어폰을 꽂고, <b>내 이름</b>을 쓴 다음 아래에서 <b>내 번호</b>를 눌러요.</p></div></div>
+    <div class="namebox"><label for="nameIn">✏️ 내 이름</label><input id="nameIn" maxlength="12" autocomplete="off" placeholder="예) 김하나"></div>
     <div class="nums">${Array.from({ length: 60 }, (_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('')}</div></div>`;
+  const inp = el.querySelector('#nameIn');
   el.querySelectorAll('.nums button').forEach(b => b.onclick = () => {
+    const nm = cleanName(inp.value);
+    if (!nm) { inp.classList.remove('need'); void inp.offsetWidth; inp.classList.add('need'); inp.focus(); toast('먼저 이름을 써 주세요! ✏️'); return; }
     const n = Number(b.dataset.n);
-    if (!confirm(`${n}번이 맞나요?`)) return;
-    S = fresh(); S.num = n; S.sid = lastP1 ? (lastP1.sid || '') : undefined; save();
+    if (!confirm(`${n}번 ${nm}, 맞나요?`)) return;
+    S = fresh(); S.num = n; S.name = nm; S.sid = lastP1 ? (lastP1.sid || '') : undefined; save();
     SendQueue.push({ action: 'progress', num: n, stage: 0 });
+    sendName();
     render();
   });
+}
+/* 이미 번호만 고르고 진행 중이던 학생은 이름만 받아요 */
+function nameScreen(el) {
+  el.innerHTML = `<div class="card"><h2>✏️ 이름을 알려 주세요</h2>
+    <p>${S.num}번 친구, 이어서 하기 전에 <b>내 이름</b>을 써 주세요.</p>
+    <div class="namebox"><input id="nameIn" maxlength="12" autocomplete="off" placeholder="예) 김하나"><button class="btn green" id="nameGo">확인</button></div></div>`;
+  const inp = el.querySelector('#nameIn');
+  const go = () => {
+    const nm = cleanName(inp.value);
+    if (!nm) { inp.classList.remove('need'); void inp.offsetWidth; inp.classList.add('need'); inp.focus(); return; }
+    S.name = nm; save(); sendName(); render();
+  };
+  el.querySelector('#nameGo').onclick = go;
+  inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  inp.focus();
 }
 function introScreen(el) {
   storyStep({
@@ -930,7 +958,7 @@ function renderHeader() {
     return (i ? `<span class="seg ${S.stage >= st ? 'done' : ''}"></span>` : '') +
       `<span class="n ${cls}" title="${STAGE_NAMES[st]}">${ic}</span>`;
   }).join('');
-  $('#who').textContent = S.num ? `${S.num}번 · 🗺️ ${S.clues}/5 · ⭐ ${S.stars}` : '번호';
+  $('#who').textContent = S.num ? `${S.num}번${S.name ? ' ' + S.name : ''} · 🗺️ ${S.clues}/5 · ⭐ ${S.stars}` : '번호';
   $('#slowBtn').classList.toggle('on', Voice.slow);
   $('#bgmBtn').classList.toggle('on', Bgm.on);
 }
@@ -944,6 +972,7 @@ function render() {
   pickBgm();
   const el = $('#app');
   if (!S.num) return numberScreen(el);
+  if (!S.name) return nameScreen(el);
   if (S.stage === 0) return introScreen(el);
   if (S.stage === 5) return caveWait(el);
   if (S.stage >= 7) return finale(el);
@@ -1048,7 +1077,7 @@ async function poll() {
       // 선생님이 '기록 초기화'를 하면 이 크롬북의 진행 기록도 새로 시작 (다음 반 대비)
       const sid = res.p1.sid || '';
       if (S.num && S.sid === undefined) { S.sid = sid; save(); }
-      else if (S.num && sid && S.sid !== sid) { S = fresh(); S.sid = sid; save(); stopAudio(); $('#overlay').classList.add('hidden'); ovKey = ''; render(); toast('새 수업이 시작됐어요. 번호를 골라요!'); }
+      else if (S.num && sid && S.sid !== sid) { S = fresh(); S.sid = sid; save(); stopAudio(); $('#overlay').classList.add('hidden'); ovKey = ''; render(); toast('새 수업이 시작됐어요. 이름과 번호를 입력해요!'); }
       const prev = lastP1 ? lastP1.status + lastP1.round : '';
       lastP1 = res.p1;
       updateOverlay();
@@ -1060,7 +1089,7 @@ async function poll() {
 }
 
 /* ===================== 시작 ===================== */
-$('#who').onclick = () => { if (S.num && confirm('번호를 잘못 골랐나요? 처음부터 다시 시작할까요?')) { const sid = S.sid; S = fresh(); S.sid = sid; save(); render(); } };
+$('#who').onclick = () => { if (S.num && confirm('번호나 이름을 잘못 썼나요? 처음부터 다시 시작할까요?')) { const sid = S.sid; S = fresh(); S.sid = sid; save(); render(); } };
 $('#who').style.cursor = 'pointer';
 document.addEventListener('click', e => {
   if (e.target.closest('button') && !e.target.closest('.opt,.mic,.cave')) Sfx.play('click');

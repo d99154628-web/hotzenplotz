@@ -55,6 +55,7 @@ th,td{border-bottom:1px solid var(--line);padding:4px 5px;text-align:center;whit
 thead th{position:sticky;top:0;background:var(--card);z-index:2}
 th.g{font-family:'Jua';font-weight:400;font-size:14px;color:var(--leaf);border-bottom:2px solid var(--leaf2)}
 td.num{font-family:'Jua';font-size:17px;position:sticky;left:0;background:var(--card)}
+td.num .nm{font-size:14px;color:var(--ink2);white-space:nowrap;margin-top:2px}
 td.c{min-width:38px;cursor:pointer;border-radius:6px}
 td.c.ok{background:#dff1df}
 td.c.re{background:#fff1c9}
@@ -282,13 +283,13 @@ function draw(d) {
   // 표
   const groups = [];
   ITEMS.forEach(it => { const g = groups[groups.length - 1]; if (g && g.name === it.group) g.n++; else groups.push({ name: it.group, n: 1 }); });
-  let html = `<thead><tr><th rowspan="2">번호</th><th rowspan="2">지금 관문</th>${groups.map(g => `<th class="g" colspan="${g.n}">${g.name}</th>`).join('')}
+  let html = `<thead><tr><th rowspan="2">번호·이름</th><th rowspan="2">지금 관문</th>${groups.map(g => `<th class="g" colspan="${g.n}">${g.name}</th>`).join('')}
     <th class="g" colspan="2">⑤ 동굴</th><th rowspan="2">자기<br>평가</th><th rowspan="2">마지막<br>활동</th></tr>
     <tr>${ITEMS.map(it => `<th title="${esc(it.title)}">${it.label}</th>`).join('')}<th title="동굴에서 붙잡은 횟수">⭐</th><th title="묻기 말하기 통과 횟수">🎤</th></tr></thead><tbody>`;
   nums.forEach(n => {
     const st = d.students[n], items = d.items[n] || {};
     const idle = D.now - st.updated > 5 * 60 * 1000 && st.stage < 7;
-    html += `<tr class="${idle ? 'idle' : ''}"><td class="num">${n}</td><td><span class="stg s${st.stage}">${STAGE_NAMES[st.stage] || st.stage}</span></td>`;
+    html += `<tr class="${idle ? 'idle' : ''}"><td class="num">${n}${items.NAME && items.NAME.said ? `<div class="nm">${esc(items.NAME.said)}</div>` : ''}</td><td><span class="stg s${st.stage}">${STAGE_NAMES[st.stage] || st.stage}</span></td>`;
     ITEMS.forEach(it => {
       const c = cellOf(items[it.qid]);
       const said = items[it.qid] && items[it.qid].said ? items[it.qid].said : '';
