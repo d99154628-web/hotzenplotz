@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교사용 · 토이랜드 장난감 공장</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#4A3B5C;--ink2:#8A7C99;--line:#EADFCF;--card:#fff;--pink:#FF8FB1;--pinkd:#E86A93;--mint:#7ED6B6;--mintd:#3FA984;--red:#E2564E;--bg:#FFF8EC}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Gowun Dodum',sans-serif;color:var(--ink);background:var(--bg);min-height:100vh}
+button,a{font-family:inherit}
+header{display:flex;align-items:center;gap:12px;padding:10px 20px;background:repeating-linear-gradient(135deg,#FF9EC0 0 22px,#FFB7CF 22px 44px);position:sticky;top:0;z-index:10;flex-wrap:wrap;box-shadow:0 4px 0 var(--pinkd)}
+header h1{font-family:'Jua';font-weight:400;font-size:22px;color:#fff;text-shadow:0 2px 0 #C84F7A}
+.chip{background:#fff;border-radius:999px;padding:5px 12px;font-family:'Jua';font-size:16px}
+.sp{flex:1}
+.btn{border:0;border-radius:12px;padding:8px 14px;font-family:'Jua';font-size:16px;background:#fff;color:var(--ink);cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.12);text-decoration:none;display:inline-block}
+.btn.main{background:var(--mint);color:#fff;box-shadow:0 3px 0 var(--mintd)}
+main{padding:16px 20px 40px}
+.panel{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 4px 0 rgba(74,59,92,.06);margin-bottom:16px;border:2px solid #fff}
+.panel h2{font-family:'Jua';font-weight:400;font-size:20px;margin-bottom:10px}
+.top{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+.rates{display:grid;grid-template-columns:repeat(20,1fr);gap:4px;align-items:end;height:130px}
+.rate{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;cursor:default}
+.rate i{width:100%;border-radius:6px 6px 2px 2px;background:var(--mint);min-height:2px}
+.rate.low i{background:var(--red)}
+.rate b{font-family:'Jua';font-weight:400;font-size:12px}
+.rate span{font-size:11px;color:var(--ink2)}
+.rooms{display:grid;grid-template-columns:repeat(20,1fr);gap:4px;margin-top:4px;font-size:12px;text-align:center}
+.worst .w{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.worst .w b{color:var(--red);font-family:'Jua';font-weight:400;white-space:nowrap}
+.dist{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.dist span{background:#F7F1FF;border-radius:999px;padding:4px 10px;font-size:14px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+th,td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:'Jua';font-weight:400;font-size:14px;background:#FFF3F7;position:sticky;top:0}
+th.rm{font-size:13px}
+td.nm{text-align:left;position:sticky;left:0;background:#fff;font-family:'Jua';font-size:16px;padding-left:10px;min-width:120px}
+td.nm small{color:var(--ink2);font-family:'Gowun Dodum';font-size:12px;margin-left:4px}
+td.c{width:30px;cursor:pointer}
+td.c i{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;font-style:normal;font-family:'Jua';font-size:15px}
+td.c.o i{background:#DDF6EC;color:var(--mintd)}
+td.c.x i{background:#FFE1DF;color:var(--red)}
+td.c.now i{background:#FFF1B8;animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.2)}}
+td.c.e i{color:#d8cfc3}
+td.sc{font-family:'Jua';font-size:18px}
+td.sc.live{color:var(--ink2);font-size:15px}
+td.sc.fin{color:var(--red)}
+tr.idle td{opacity:.55}
+.prog{display:inline-block;width:80px;height:10px;border-radius:999px;background:#F0E8DE;overflow:hidden;vertical-align:middle;margin-left:6px}
+.prog i{display:block;height:100%;background:var(--pink)}
+.tabs{display:flex;gap:6px;margin-bottom:10px;align-items:center}
+.tabs button{border:2px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font-family:'Jua';cursor:pointer}
+.tabs button.on{border-color:var(--pink);color:var(--pinkd)}
+#pop{position:fixed;z-index:30;background:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.18);max-width:340px;font-size:14px;display:none;border:2px solid var(--line)}
+#pop b{font-family:'Jua';font-weight:400;font-size:16px}
+#pop .en{font-family:'Fredoka';font-weight:600}
+#login{max-width:380px;margin:80px auto;text-align:center}
+#login input{width:100%;font-size:22px;padding:10px;border:2px solid var(--line);border-radius:12px;margin:12px 0;text-align:center;font-family:'Jua'}
+.demo{background:#FFE3B8;padding:8px 20px;font-family:'Jua';font-size:15px}
+.empty{padding:20px;color:var(--ink2)}
+@media (max-width:900px){.top{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login" class="panel">
+  <h2>👩‍🏫 교사용 화면</h2>
+  <p>선생님 비밀번호를 입력하세요.</p>
+  <input id="pw" type="password" autocomplete="off">
+  <button class="btn main" id="loginBtn" style="width:100%">들어가기</button>
+  <p id="loginMsg" style="color:var(--red);margin-top:10px"></p>
+</div>
+<div id="dash" hidden>
+<header>
+  <h1>🧸 토이랜드 장난감 공장 · 교사용</h1>
+  <span class="chip" id="cJoin">접속 0명</span>
+  <span class="chip" id="cDone">완료 0명</span>
+  <span class="chip" id="cAvg">평균 -</span>
+  <span class="sp"></span>
+  <span class="chip" id="cTime">-</span>
+  <a class="btn" href="./" target="_blank" rel="noopener" title="학생 화면을 새 탭으로 열어요">👧 학생 화면</a>
+  <button class="btn" id="resetBtn">🗑 기록 초기화</button>
+</header>
+<div class="demo" id="demoBar" hidden>데모 모드예요. 서버(구글 시트)를 연결하기 전이라 이 컴퓨터 브라우저에서 푼 기록만 보여요.</div>
+<main>
+  <div class="top">
+    <div class="panel"><h2>📊 문제별 정답률 <small style="font-family:'Gowun Dodum';font-size:13px;color:var(--ink2)">(푼 학생 기준, 빨간색 = 60% 미만)</small></h2>
+      <div class="rates" id="rates"></div><div class="rooms" id="roomRow"></div></div>
+    <div class="panel worst"><h2>😵 많이 틀린 문제</h2><div id="worst"></div><div class="dist" id="dist"></div></div>
+  </div>
+  <div class="panel">
+    <div class="tabs"><h2 style="margin:0 10px 0 0">🧾 학생별 풀이 과정</h2>
+      <button data-sort="num" class="on">번호순</button><button data-sort="score">점수순</button><button data-sort="recent">최근 활동순</button>
+      <span style="color:var(--ink2);font-size:13px;margin-left:8px">칸을 누르면 학생이 고른 답이 보여요</span></div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </div>
+</main>
+</div>
+<div id="pop"></div>
+<script src="common.js?v=1"></script>
+<script>
+const $ = s => document.querySelector(s);
+let PW = sessionStorage.getItem('tf_pw') || '';
+let D = null, sortBy = 'num';
+
+async function login() {
+  const pw = $('#pw').value.trim() || PW;
+  if (!pw) return;
+  $('#loginMsg').textContent = '확인 중...';
+  try {
+    const r = await api({ action: 'dash', pw });
+    if (!r || r.ok === false) { $('#loginMsg').textContent = '비밀번호가 맞지 않아요.'; return; }
+    PW = pw; sessionStorage.setItem('tf_pw', pw);
+    $('#login').hidden = true; $('#dash').hidden = false;
+    if (DEMO) $('#demoBar').hidden = false;
+    draw(r); loop();
+  } catch (e) { $('#loginMsg').textContent = '서버에 연결하지 못했어요. 잠시 후 다시 해 보세요.'; }
+}
+$('#loginBtn').onclick = login;
+$('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
+if (PW) login();
+
+async function loop() {
+  try { const r = await api({ action: 'dash', pw: PW }); if (r && r.ok !== false) draw(r); } catch (e) {}
+  setTimeout(loop, 3000);
+}
+function ago(ms) {
+  if (!ms) return '-';
+  const s = Math.max(0, Math.round((D.now - ms) / 1000));
+  return s < 60 ? s + '초 전' : Math.round(s / 60) + '분 전';
+}
+function liveScore(num) { const a = D.ans[num] || {}; return Object.values(a).filter(x => x.ok).length * POINTS; }
+
+function draw(d) {
+  D = d;
+  const st = d.students.slice();
+  const done = st.filter(s => s.done);
+  $('#cJoin').textContent = `접속 ${st.length}명`;
+  $('#cDone').textContent = `완료 ${done.length}명`;
+  $('#cAvg').textContent = done.length ? `평균 ${Math.round(done.reduce((a, s) => a + Number(s.score || 0), 0) / done.length)}점` : '평균 -';
+  $('#cTime').textContent = '갱신 ' + new Date().toLocaleTimeString('ko-KR');
+
+  // 문제별 정답률
+  const stat = Q.map(q => { let n = 0, ok = 0; st.forEach(s => { const a = (d.ans[s.num] || {})[q.id]; if (a) { n++; if (a.ok) ok++; } }); return { q, n, ok, p: n ? Math.round(ok / n * 100) : null }; });
+  $('#rates').innerHTML = stat.map((x, i) => `<div class="rate ${x.p !== null && x.p < 60 ? 'low' : ''}" title="${i + 1}. ${esc(x.q.short)} — ${x.n}명 중 ${x.ok}명 정답">
+    <b>${x.p === null ? '' : x.p + '%'}</b><i style="height:${x.p === null ? 2 : Math.max(4, x.p * 0.85)}px"></i><span>${i + 1}</span></div>`).join('');
+  $('#roomRow').innerHTML = Q.map(q => `<span>${ROOMS[q.room].icon}</span>`).join('');
+  const worst = stat.filter(x => x.n && x.n - x.ok > 0).sort((a, b) => (b.n - b.ok) - (a.n - a.ok)).slice(0, 4);
+  $('#worst').innerHTML = worst.length ? worst.map(x => `<div class="w"><span>${Q.indexOf(x.q) + 1}. ${ROOMS[x.q.room].icon} ${esc(x.q.short)}</span><b>${x.n - x.ok}명 틀림</b></div>`).join('') : '<p style="color:var(--ink2)">아직 없어요.</p>';
+  const dist = {};
+  st.forEach(s => { const k = s.done ? '완료' : (s.qi >= 20 ? '채점 중' : (ROOMS[Q[s.qi].room].icon + ' ' + ROOMS[Q[s.qi].room].name)); dist[k] = (dist[k] || 0) + 1; });
+  $('#dist').innerHTML = Object.keys(dist).map(k => `<span>${k} <b>${dist[k]}</b></span>`).join('');
+
+  // 표
+  if (sortBy === 'num') st.sort((a, b) => a.num - b.num);
+  if (sortBy === 'score') st.sort((a, b) => (b.done ? Number(b.score) : liveScore(b.num)) - (a.done ? Number(a.score) : liveScore(a.num)));
+  if (sortBy === 'recent') st.sort((a, b) => b.updated - a.updated);
+  if (!st.length) { $('#tbl').innerHTML = '<tr><td class="empty">아직 접속한 학생이 없어요. 학생들에게 주소를 알려 주세요.</td></tr>'; return; }
+  let html = `<thead><tr><th style="text-align:left;padding-left:10px">번호·이름</th><th>진행</th>${Q.map((q, i) => `<th class="rm" title="${esc(q.short)}">${ROOMS[q.room].icon}<br>${i + 1}</th>`).join('')}<th>점수</th><th>마지막<br>활동</th></tr></thead><tbody>`;
+  st.forEach(s => {
+    const a = d.ans[s.num] || {};
+    const nAns = Math.max(Object.keys(a).length, Math.min(20, s.qi || 0));
+    const idle = !s.done && d.now - s.updated > 4 * 60 * 1000;
+    html += `<tr class="${idle ? 'idle' : ''}"><td class="nm">${s.num}번 ${esc(s.name || '')}${idle ? '<small>멈춤?</small>' : ''}</td>
+      <td>${nAns}/20<span class="prog"><i style="width:${nAns / 20 * 100}%"></i></span></td>`;
+    Q.forEach((q, i) => {
+      const x = a[q.id];
+      const cls = x ? (x.ok ? 'o' : 'x') : (!s.done && i === nAns ? 'now' : 'e');
+      html += `<td class="c ${cls}" data-n="${s.num}" data-q="${q.id}"><i>${x ? (x.ok ? 'O' : 'X') : (cls === 'now' ? '✏️' : '·')}</i></td>`;
+    });
+    html += s.done ? `<td class="sc fin">${s.score}점</td>` : `<td class="sc live" title="지금까지 맞힌 점수">${nAns ? liveScore(s.num) + '점…' : '-'}</td>`;
+    html += `<td>${ago(s.updated)}</td></tr>`;
+  });
+  $('#tbl').innerHTML = html + '</tbody>';
+}
+
+// 칸 누르면 학생 답 보기
+document.addEventListener('click', e => {
+  const td = e.target.closest('td.c'), pop = $('#pop');
+  if (!td) { pop.style.display = 'none'; return; }
+  const q = Q.find(x => x.id === td.dataset.q), s = D.students.find(x => x.num == td.dataset.n), a = (D.ans[td.dataset.n] || {})[q.id];
+  pop.innerHTML = `<b>${s.num}번 ${esc(s.name || '')} · ${Q.indexOf(q) + 1}번</b><div style="color:var(--ink2);margin:4px 0">${ROOMS[q.room].icon} ${esc(q.short)}</div>
+    ${a ? `<div>학생 답: <span class="en" style="color:${a.ok ? 'var(--mintd)' : 'var(--red)'}">${esc(a.a)}</span> ${a.ok ? '⭕' : '❌'}</div>` : '<div>아직 안 풀었어요.</div>'}
+    <div>정답: <span class="en">${esc(correctText(q))}</span></div>`;
+  const r = td.getBoundingClientRect();
+  pop.style.display = 'block';
+  pop.style.left = Math.min(window.innerWidth - 350, r.left) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+});
+document.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => {
+  sortBy = b.dataset.sort;
+  document.querySelectorAll('[data-sort]').forEach(x => x.classList.toggle('on', x === b));
+  if (D) draw(D);
+});
+$('#resetBtn').onclick = async () => {
+  if (!confirm('모든 학생의 기록을 지울까요? (다음 반 수업 전에 눌러요)\n학생 화면도 처음부터 다시 시작돼요.')) return;
+  const r = await api({ action: 'reset', pw: PW });
+  if (r && r.ok !== false) { alert('기록을 초기화했어요.'); const d = await api({ action: 'dash', pw: PW }); draw(d); }
+  else alert('초기화하지 못했어요.');
+};
+</script>
+</body>
+</html>
