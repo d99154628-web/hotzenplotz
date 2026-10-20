@@ -292,59 +292,116 @@ const Sfx = {
     const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
     o.type = type; o.frequency.setValueAtTime(f, t);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
   },
-  noise(t0, dur, vol = 0.12, freq = 2500) {
+  noise(t0, dur, vol = 0.12, freq = 2500, q = 1) {
     const c = this.ac(); if (!c || !this.on) return;
-    const len = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const len = Math.max(1, Math.floor(c.sampleRate * dur)), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
     const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime + t0;
-    f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = vol;
+    f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol;
     s.buffer = b; s.connect(f); f.connect(g); g.connect(c.destination); s.start(t);
+  },
+  /* 오르골 같은 맑은 종소리 */
+  bell(f, t0, dur = 1, vol = 0.12) { this.tone(f, t0, dur, 'sine', vol); this.tone(f * 4.02, t0, dur * 0.3, 'sine', vol * 0.18); this.tone(f * 2.01, t0, dur * 0.5, 'triangle', vol * 0.12); },
+  /* 태엽 감는 소리: 따르륵 딸깍딸깍 + 돌아가는 소리 + 띵 */
+  windup(len = 1) {
+    const n = Math.round(7 * len);
+    for (let i = 0; i < n; i++) this.noise(i * 0.042, 0.018, 0.22, 3200 + (i % 2) * 700, 6);
+    this.tone(220, 0.02, 0.32 * len, 'square', 0.025, 640);
+    this.bell(1568, 0.3 * len + 0.04, 0.5, 0.09);
+  },
+  /* 자물쇠 잠기는 소리: 철컥 + 덜컹 + 짤랑 */
+  lock() {
+    this.noise(0, 0.035, 0.32, 1900, 12); this.tone(960, 0, 0.05, 'square', 0.04);
+    this.noise(0.13, 0.08, 0.38, 520, 5); this.tone(150, 0.13, 0.22, 'sine', 0.32, 80);
+    this.tone(2350, 0.24, 0.12, 'sine', 0.05); this.tone(2980, 0.29, 0.1, 'sine', 0.04);
   },
   play(n) {
     switch (n) {
-      case 'click':  this.tone(880, 0, 0.07, 'triangle', 0.12); break;
-      case 'pick':   this.tone(660, 0, 0.08, 'triangle', 0.14); this.tone(990, 0.06, 0.1, 'triangle', 0.12); break;
-      case 'pop':    this.tone(500, 0, 0.12, 'sine', 0.2, 1100); break;
-      case 'back':   this.tone(700, 0, 0.1, 'sine', 0.15, 350); break;
-      case 'box':    this.noise(0, 0.25, 0.1, 900); this.tone(330, 0.05, 0.12, 'square', 0.06); this.tone(523, 0.2, 0.18, 'triangle', 0.14); this.tone(784, 0.32, 0.25, 'triangle', 0.14); break;
-      case 'room':   [523, 659, 784, 1047].forEach((f, i) => this.tone(f, i * 0.1, 0.22, 'triangle', 0.14)); break;
+      case 'click':  this.noise(0, 0.02, 0.25, 1800, 8); this.tone(1200, 0, 0.04, 'triangle', 0.05); break;   // 나무 똑딱
+      case 'pick':   this.bell(1318, 0, 0.35, 0.08); this.bell(1760, 0.06, 0.4, 0.07); break;
+      case 'pop':    this.noise(0, 0.03, 0.3, 1200, 6); this.tone(520, 0, 0.1, 'sine', 0.12, 780); break;            // 블록 딸깍
+      case 'back':   this.noise(0, 0.03, 0.25, 900, 6); this.tone(600, 0, 0.1, 'sine', 0.1, 360); break;
+      case 'box':    this.noise(0, 0.22, 0.12, 700, 2); this.noise(0.42, 0.05, 0.3, 500, 4); this.windup(0.6); break;   // 상자 닫고 태엽 살짝
+      case 'room':   this.creak(); [587, 698, 880].forEach((f, i) => this.bell(f, 0.55 + i * 0.16, 0.8, 0.09)); break;
       case 'pen':    this.noise(0, 0.16, 0.09, 3800); break;
-      case 'slash':  this.noise(0, 0.1, 0.11, 2800); break;
-      case 'stamp':  this.tone(110, 0, 0.25, 'sine', 0.4, 55); this.noise(0, 0.12, 0.2, 400); break;
-      case 'fanfare': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i * 0.13, i === 5 ? 0.6 : 0.2, 'triangle', 0.16)); break;
-      case 'boom':   this.noise(0, 0.6, 0.3, 300); this.tone(90, 0, 0.6, 'sawtooth', 0.12, 40); break;
+      case 'stamp':  this.tone(110, 0, 0.25, 'sine', 0.4, 55); this.noise(0, 0.12, 0.25, 400, 2); break;
+      case 'windup': this.windup(1); break;
+      case 'lock':   this.lock(); break;
+      case 'fanfare': this.windup(1.6); [587, 740, 880, 1175, 880, 1175, 1480].forEach((f, i) => this.bell(f, 0.75 + i * 0.13, i === 6 ? 1.6 : 0.6, 0.1)); break;
+      case 'sad':    [440, 415, 392, 370].forEach((f, i) => this.bell(f, i * 0.28, 0.7, 0.08)); break;
+      case 'boom':   this.noise(0, 0.7, 0.35, 260, 1); this.tone(90, 0, 0.7, 'sawtooth', 0.1, 38); this.lock(); break;
     }
+  },
+  /* 삐걱 문 여는 소리 */
+  creak() {
+    const c = this.ac(); if (!c || !this.on) return;
+    const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), t = c.currentTime;
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(230, t + 0.25); o.frequency.linearRampToValueAtTime(120, t + 0.55);
+    lfo.frequency.value = 38; lg.gain.value = 25; lfo.connect(lg); lg.connect(o.frequency);
+    f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 4;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(f); f.connect(g); g.connect(c.destination); o.start(t); lfo.start(t); o.stop(t + 0.65); lfo.stop(t + 0.65);
   }
 };
 
-/* ---------- 배경음악: 오르골 느낌 (파일 없이 생성) ---------- */
+/* ---------- 배경음악: 살짝 으스스한 오르골 왈츠 (D단조, 파일 없이 생성) ---------- */
 const Music = {
-  on: true, timer: null, gain: null, step: 0, ducked: false,
-  // 도레미 오르골 멜로디 (반복)
-  mel: [72, 76, 79, 76, 77, 74, 71, 74, 72, 76, 79, 84, 83, 79, 77, 74, 76, 72, 74, 71, 72, 0, 67, 0],
-  bass: [48, 0, 55, 0, 53, 0, 55, 0, 48, 0, 55, 0, 53, 0, 50, 0, 48, 0, 55, 0, 48, 0, 43, 0],
+  on: true, timer: null, gain: null, ducked: false, bar: 0, nextT: 0, loop: 0,
+  BEAT: 0.42,
+  // [박 위치, 음(MIDI), 길이(박)] — 8마디 3/4박자
+  MEL: [
+    [[0, 69, 1], [1, 74, 1], [2, 77, 1]],
+    [[0, 76, 1.5], [1.5, 74, .5], [2, 73, 1]],
+    [[0, 74, 1], [1, 79, 1], [2, 82, 1]],
+    [[0, 81, 2], [2, 79, .5], [2.5, 76, .5]],
+    [[0, 77, 1], [1, 76, .5], [1.5, 74, .5], [2, 69, 1]],
+    [[0, 70, 1], [1, 74, 1], [2, 77, 1]],
+    [[0, 76, 1], [1, 79, 1], [2, 73, 1]],
+    [[0, 74, 2.5]]
+  ],
+  //       베이스, 화음(2·3박)
+  HAR: [[50, [62, 65, 69]], [50, [62, 65, 69]], [43, [62, 67, 70]], [45, [61, 64, 67]],
+        [50, [62, 65, 69]], [46, [62, 65, 70]], [43, [61, 64, 67]], [50, [62, 65, 69]]],
+  hz: m => 440 * Math.pow(2, (m - 69) / 12),
   start() {
     if (!this.on || this.timer) return;
     const c = Sfx.ac(); if (!c) return;
-    if (!this.gain) { this.gain = c.createGain(); this.gain.gain.value = 0.05; this.gain.connect(c.destination); }
-    const beat = 0.32;
-    this.timer = setInterval(() => {
-      const t = c.currentTime + 0.05, m = this.mel[this.step % this.mel.length], b = this.bass[this.step % this.bass.length];
-      if (m) this.note(m, t, 0.9, 'triangle', 1);
-      if (b) this.note(b, t, 0.6, 'sine', 0.7);
-      this.step++;
-    }, beat * 1000);
+    if (!this.gain) { this.gain = c.createGain(); this.gain.gain.value = 1.0; this.gain.connect(c.destination); }
+    this.nextT = c.currentTime + 0.1;
+    this.timer = setInterval(() => this.tick(), 120);
   },
-  note(midi, t, dur, type, v) {
-    const c = Sfx.ctx, o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.gain); o.start(t); o.stop(t + dur + 0.05);
+  tick() {
+    const c = Sfx.ctx; if (!c) return;
+    while (this.nextT < c.currentTime + 0.5) {
+      const b = this.bar % 8, t = this.nextT, B = this.BEAT, up = this.loop % 2 ? 12 : 0;
+      this.MEL[b].forEach(([at, m, len]) => this.box(this.hz(m + up), t + at * B, Math.max(0.8, len * B * 2.2), up ? 0.05 : 0.07));
+      const [bass, ch] = this.HAR[b];
+      this.pluck(this.hz(bass), t, 0.09);
+      [1, 2].forEach(k => ch.forEach(m => this.pluck(this.hz(m), t + k * B, 0.018)));
+      if (b === 7) this.box(this.hz(98), t + 2 * B, 1.4, 0.02);          // 끝마디 높은 반짝
+      this.nextT += 3 * B; this.bar++; if (this.bar % 8 === 0) this.loop++;
+    }
+  },
+  out(o, g, t, dur) { o.connect(g); g.connect(this.gain); o.start(t); o.stop(t + dur + 0.05); },
+  box(f, t, dur, v) {   // 오르골 음
+    const c = Sfx.ctx;
+    [[1, v, 'sine'], [4.02, v * 0.15, 'sine'], [2.01, v * 0.1, 'triangle']].forEach(([mul, vol, type]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type; o.frequency.value = f * mul;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur * (mul > 1 ? 0.35 : 1));
+      this.out(o, g, t, dur);
+    });
+  },
+  pluck(f, t, v) {      // 피치카토 베이스·화음
+    const c = Sfx.ctx, o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter();
+    o.type = 'triangle'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = 900;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+    o.connect(fl); fl.connect(g); g.connect(this.gain); o.start(t); o.stop(t + 0.4);
   },
   stop() { clearInterval(this.timer); this.timer = null; },
   toggle() { this.on = !this.on; if (this.on) this.start(); else this.stop(); return this.on; },
-  duck(d) { if (this.gain && Sfx.ctx) this.gain.gain.setTargetAtTime(d ? 0.012 : 0.05, Sfx.ctx.currentTime, 0.15); }
+  duck(d) { if (this.gain && Sfx.ctx) this.gain.gain.setTargetAtTime(d ? 0.25 : 1.0, Sfx.ctx.currentTime, 0.15); }
 };
