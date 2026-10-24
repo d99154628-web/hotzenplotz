@@ -751,7 +751,7 @@ const SFX={
   open(){const c=ac();if(!c)return;SFX.crack();
     tone(c,{f:55,f2:52,type:"triangle",dur:2.4,vol:.22,attack:.15});
     tone(c,{f:82.4,type:"sine",dur:2.2,vol:.12,attack:.3});
-    tone(c,{f:180,f2:120,type:"sawtooth",dur:.55,vol:.035,attack:.05});
+    tone(c,{f:880,f2:1320,type:"sine",dur:.45,vol:.025,attack:.05});
     noise(c,{dur:.9,vol:.12,from:300,to:3200,q:9});
     [659.3,830.6,987.8,1318.5,1661.2].forEach((f,i)=>{tone(c,{f,type:"sine",t:.25+i*.11,dur:1.6,vol:.07});tone(c,{f:f*2.01,type:"sine",t:.25+i*.11,dur:.8,vol:.02});});
   },
@@ -776,8 +776,12 @@ const SFX={
   pick(){const c=ac();if(!c)return;tone(c,{f:1320,type:"sine",dur:.12,vol:.05,attack:.002});tone(c,{f:1980,type:"sine",t:.03,dur:.1,vol:.03,attack:.002});},
   // 게임 시작: 문이 삐걱 열리고 가게 종이 딸랑딸랑
   bell(){const c=ac();if(!c)return;
-    tone(c,{f:140,f2:95,type:"sawtooth",dur:.9,vol:.03,attack:.08});noise(c,{dur:.8,vol:.05,from:400,to:1200,q:10});
-    [0,.18,.36].forEach((t,k)=>{[2093,2637,3136].forEach((f,j)=>tone(c,{f:f*(1-k*.02),type:"sine",t:.5+t+j*.004,dur:1.1,vol:.05/(j+1),attack:.002}));});},
+    // 1) 열쇠를 꽂고 두 번 돌리는 금속 '찰칵, 철컥'
+    [[0,3200],[.28,2400]].forEach(([t,f])=>{noise(c,{t,dur:.05,vol:.16,from:f*1.4,to:f,q:6});tone(c,{f,type:"triangle",t,dur:.12,vol:.05,attack:.001});tone(c,{f:f*1.51,type:"sine",t:t+.005,dur:.18,vol:.025,attack:.001});});
+    // 2) 문이 천천히 열리는 '끼이익' (높고 가는 소리만)
+    noise(c,{t:.55,dur:.9,vol:.05,from:1100,to:1700,q:28});noise(c,{t:.6,dur:.8,vol:.03,from:2200,to:2900,q:30});
+    // 3) 문 위에 달린 가게 종 '딸랑-딸랑'
+    [0,.16,.34,.5].forEach((t,k)=>{[1760,2217,2637,3520].forEach((f,j)=>tone(c,{f:f*(1+(k%2)*.03),type:"sine",t:1.15+t+j*.003,dur:1.3,vol:.06/(j+1),attack:.002}));});},
   // 정답: 맑은 종소리 두 번
   correct(){const c=ac();if(!c)return;[[784,0],[1174.7,.12],[1568,.24]].forEach(([f,t])=>{tone(c,{f,type:"sine",t,dur:.9,vol:.1,attack:.004});tone(c,{f:f*2,type:"sine",t,dur:.4,vol:.025,attack:.004});});},
   // 오답: 낡은 시계가 둔하게 '똑-딱' 하고 한숨처럼 내려감
