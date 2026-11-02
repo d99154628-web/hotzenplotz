@@ -136,3 +136,10 @@ a.btn{text-decoration:none;display:inline-block}
 .bars li.first .bt i{box-shadow:0 0 24px var(--gc)}
 .bbfeed .feed{max-height:none;font-size:1.1rem}
 @media (max-width:640px){.bars li{grid-template-columns:minmax(0,1fr) 3.5em}.bars .bt{grid-column:1/-1;grid-row:2}}
+
+/* 바로가기 (학생 ↔ 교사) */
+.quicklink{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:40;
+  font-family:var(--f-display);font-size:.95rem;color:var(--brass);text-decoration:none;background:rgba(31,22,17,.88);
+  border:1px solid var(--brass-deep);border-radius:999px;padding:7px 14px;box-shadow:0 4px 12px rgba(0,0,0,.45);opacity:.8;transition:opacity .2s}
+.quicklink:hover,.quicklink:focus-visible{opacity:1}
+.wrap{padding-bottom:72px}

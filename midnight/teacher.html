@@ -12,6 +12,7 @@
 </head>
 <body class="tpage">
 <div class="wrap" id="app"><p class="loading">불러오는 중이에요…</p></div>
+<a class="quicklink" href="./" target="_blank" rel="noopener">🎒 학생 화면</a>
 <script src="common.js"></script>
 <script>
 /* =====================================================================
@@ -69,8 +70,7 @@ function topBar() {
   const prog = all ? D.students.reduce((a, s) => a + Math.min(s.qi, L), 0) / (all * L) : 0;
   return `<header class="top"><div class="brand">${clockSVG(D.open === 'closed' ? 1 : prog)}<div><small>교사용 화면 · ${esc(D.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
    <div class="toolbar"><span class="sync" id="sync" role="status">방금 갱신</span>
-    <button class="btn ghost" data-act="big">점수판 크게 보기</button>
-    <a class="btn ghost" href="./" target="_blank" rel="noopener">학생 화면 열기 ↗</a></div></header>`;
+    <button class="btn ghost" data-act="big">점수판 크게 보기</button></div></header>`;
 }
 function controls() {
   const n = D.n;
