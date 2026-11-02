@@ -15,7 +15,7 @@
  *
  * 교사용 화면 비밀번호는 아래 PASSWORD 를 바꾸면 돼요.
  */
-const PASSWORD = '1234';
+const PASSWORD = '0634';
 
 function doGet() {
   return out_({ ok: true, msg: 'toy factory server is running' });

@@ -122,6 +122,12 @@ b{color:var(--candle);font-weight:700}
 .nums{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;margin-top:16px;position:relative;z-index:1}
 .nums button{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:8px 0;font-family:var(--jua);font-size:21px;box-shadow:0 3px 0 #191433}
 .nums button:hover{border-color:var(--candle);color:var(--candle)}
+.clsrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;position:relative;z-index:1}
+.clsrow .lb{font-family:var(--jua);font-size:22px;align-self:center}
+.clsrow button{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:8px 18px;font-family:var(--jua);font-size:22px;box-shadow:0 3px 0 #191433;color:inherit}
+.clsrow button.sel,.clsrow button:hover{border-color:var(--candle);color:var(--candle)}
+.clsrow button.sel{background:var(--candle);color:#1E1838}
+.nums.locked{opacity:.4}
 .hint{font-family:var(--jua);font-size:17px;color:var(--fog);text-align:center;margin-top:12px}
 
 /* ---------- 이야기 ---------- */
@@ -355,7 +361,7 @@ SendQueue.onReply = r => {
 
 /* ===================== 머리줄 ===================== */
 function renderHeader() {
-  $('#who').textContent = S.num ? `${S.num}번 ${S.name}` : '이름';
+  $('#who').textContent = S.num ? `${numLabel(S.num)} ${S.name}` : '이름';
   const cur = S.num && S.phase === 'play' ? S.qi : -1;
   $('#belt').innerHTML = ROOMS.map((r, ri) => {
     const qs = Q.map((q, i) => i).filter(i => Q[i].room === ri);
@@ -388,21 +394,30 @@ function wonky(t) {
   return [...t].map((c, i) => c === ' ' ? '<span class="sp"> </span>'
     : `<span class="${i % 4 === 1 ? 'c' : ''}" style="--r:${R[i % 10]}deg;--y:${Y[i % 10]}px;--d:${(i * 0.17).toFixed(2)}s">${c}</span>`).join('');
 }
+function numLabel(n) { n = Number(n); return n >= 100 ? `${Math.floor(n / 100)}반 ${n % 100}번` : `${n}번`; }
 function cleanName(v) { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 12); }
 function startScreen(el) {
   setScene('bg_title');
   el.innerHTML = `<div class="card">
     ${shot('bg_title', `<div class="over hero"><h1 class="ttl">토이랜드 장난감 공장의<br>뒤죽박죽 주말 계획!${[[-3, 8, 0], [97, 2, .8], [18, 92, 1.5], [78, 88, .4], [50, -8, 1.9]].map(([x, y, d]) => `<span class="tw" style="left:${x}%;top:${y}%;animation-delay:${d}s">✦</span>`).join('')}</h1><div class="sub">What are you going to do this weekend?</div></div>`)}
-    <p class="center mt">🎧 이어폰을 꽂고, <b>내 이름</b>을 쓴 다음 아래에서 <b>내 번호</b>를 눌러요.</p>
+    <p class="center mt">🎧 이어폰을 꽂고, <b>내 이름</b>을 쓰고 <b>우리 반</b>을 고른 다음 <b>내 번호</b>를 눌러요.</p>
     <div class="namebox"><label for="nameIn">✏️ 내 이름</label><input id="nameIn" maxlength="12" autocomplete="off" placeholder="예) 김하나"></div>
-    <div class="nums">${Array.from({ length: 40 }, (_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('')}</div>
+    <div class="clsrow"><span class="lb">🏫 우리 반</span>${[1, 2, 3, 4, 5, 6].map(c => `<button data-c="${c}">${c}반</button>`).join('')}</div>
+    <div class="nums locked">${Array.from({ length: 60 }, (_, i) => `<button data-n="${i + 1}">${i + 1}</button>`).join('')}</div>
   </div>`;
   const inp = el.querySelector('#nameIn');
+  let cls = 0;
+  el.querySelectorAll('.clsrow button').forEach(b => b.onclick = () => {
+    cls = Number(b.dataset.c);
+    el.querySelectorAll('.clsrow button').forEach(x => x.classList.toggle('sel', x === b));
+    el.querySelector('.nums').classList.remove('locked');
+  });
   el.querySelectorAll('.nums button').forEach(b => b.onclick = () => {
     const nm = cleanName(inp.value);
     if (!nm) { inp.classList.remove('need'); void inp.offsetWidth; inp.classList.add('need'); inp.focus(); toast('먼저 이름을 써 주세요! ✏️'); return; }
-    const n = Number(b.dataset.n);
-    if (!confirm(`${n}번 ${nm}, 맞나요?`)) return;
+    if (!cls) { toast('먼저 우리 반을 골라 주세요! 🏫'); return; }
+    const n = cls * 100 + Number(b.dataset.n);
+    if (!confirm(`${numLabel(n)} ${nm}, 맞나요?`)) return;
     S = fresh(); S.num = n; S.name = nm; save();
     SendQueue.clear();
     SendQueue.push({ action: 'join', num: n, name: nm });
@@ -592,7 +607,7 @@ function gradeScreen(el) {
   el.innerHTML = `<div class="card">
     <div class="grader">${toyHTML('boss', '', false)}<div class="qask">${animate ? '테디 공장장이 빨간 펜을 꺼냈어요... 슥슥! ✍️' : '테디 공장장의 채점 결과예요.'}</div></div>
     <div class="paper">
-      <div class="ph"><h2>📋 장난감 포장 작업 일지</h2><div class="who">6학년 · <b>${S.num}</b>번 · 이름 <b>${esc(S.name)}</b></div></div>
+      <div class="ph"><h2>📋 장난감 포장 작업 일지</h2><div class="who">6학년 · <b>${numLabel(S.num)}</b> · 이름 <b>${esc(S.name)}</b></div></div>
       <div class="items">${R.map((x, i) => `<div class="it ${animate ? '' : 'mk'}" data-i="${i}">
         <span class="fx ${x.ok ? 'gear' : 'lock'}">${x.ok ? '⚙️' : '🔒'}</span><div class="no">${i + 1}<svg viewBox="0 0 66 62"><path d="${x.ok ? CIRCLE : SLASH}"/></svg></div>
         <div class="body"><div class="s">${ROOMS[x.q.room].icon} ${esc(x.q.short)}</div>
@@ -658,7 +673,7 @@ function parade(box, score) {
 
 /* ===================== 시작 ===================== */
 $('#who').onclick = () => {
-  if (S.num && confirm('번호나 이름을 잘못 썼나요? 처음부터 다시 시작할까요?')) { SendQueue.clear(); S = fresh(); save(); render(); }
+  if (S.num && confirm('반·번호나 이름을 잘못 썼나요? 처음부터 다시 시작할까요?')) { SendQueue.clear(); S = fresh(); save(); render(); }
 };
 $('#who').style.cursor = 'pointer';
 $('#musicBtn').onclick = () => { const on = Music.toggle(); renderHeader(); toast(on ? '🎵 음악을 켰어요' : '🔇 음악을 껐어요'); };

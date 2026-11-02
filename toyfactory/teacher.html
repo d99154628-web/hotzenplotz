@@ -92,7 +92,7 @@ tr.idle td{opacity:.55}
   </div>
   <div class="panel">
     <div class="tabs"><h2 style="margin:0 10px 0 0">🧾 학생별 풀이 과정</h2>
-      <button data-sort="num" class="on">번호순</button><button data-sort="score">점수순</button><button data-sort="recent">최근 활동순</button>
+      <button data-sort="num" class="on">반·번호순</button><button data-sort="score">점수순</button><button data-sort="recent">최근 활동순</button>
       <span style="color:var(--ink2);font-size:13px;margin-left:8px">칸을 누르면 학생이 고른 답이 보여요</span></div>
     <div class="tablewrap"><table id="tbl"></table></div>
   </div>
@@ -104,6 +104,7 @@ tr.idle td{opacity:.55}
 const $ = s => document.querySelector(s);
 let PW = sessionStorage.getItem('tf_pw') || '';
 let D = null, sortBy = 'num';
+function numLabel(n) { n = Number(n); return n >= 100 ? `${Math.floor(n / 100)}반 ${n % 100}번` : `${n}번`; }
 
 async function login() {
   const pw = $('#pw').value.trim() || PW;
@@ -158,12 +159,12 @@ function draw(d) {
   if (sortBy === 'score') st.sort((a, b) => (b.done ? Number(b.score) : liveScore(b.num)) - (a.done ? Number(a.score) : liveScore(a.num)));
   if (sortBy === 'recent') st.sort((a, b) => b.updated - a.updated);
   if (!st.length) { $('#tbl').innerHTML = '<tr><td class="empty">아직 접속한 학생이 없어요. 학생들에게 주소를 알려 주세요.</td></tr>'; return; }
-  let html = `<thead><tr><th style="text-align:left;padding-left:10px">번호·이름</th><th>진행</th>${Q.map((q, i) => `<th class="rm" title="${esc(q.short)}">${ROOMS[q.room].icon}<br>${i + 1}</th>`).join('')}<th>점수</th><th>마지막<br>활동</th></tr></thead><tbody>`;
+  let html = `<thead><tr><th style="text-align:left;padding-left:10px">반·번호·이름</th><th>진행</th>${Q.map((q, i) => `<th class="rm" title="${esc(q.short)}">${ROOMS[q.room].icon}<br>${i + 1}</th>`).join('')}<th>점수</th><th>마지막<br>활동</th></tr></thead><tbody>`;
   st.forEach(s => {
     const a = d.ans[s.num] || {};
     const nAns = Math.max(Object.keys(a).length, Math.min(20, s.qi || 0));
     const idle = !s.done && d.now - s.updated > 4 * 60 * 1000;
-    html += `<tr class="${idle ? 'idle' : ''}"><td class="nm">${s.num}번 ${esc(s.name || '')}${idle ? '<small>멈춤?</small>' : ''}</td>
+    html += `<tr class="${idle ? 'idle' : ''}"><td class="nm">${numLabel(s.num)} ${esc(s.name || '')}${idle ? '<small>멈춤?</small>' : ''}</td>
       <td>${nAns}/20<span class="prog"><i style="width:${nAns / 20 * 100}%"></i></span></td>`;
     Q.forEach((q, i) => {
       const x = a[q.id];
@@ -181,7 +182,7 @@ document.addEventListener('click', e => {
   const td = e.target.closest('td.c'), pop = $('#pop');
   if (!td) { pop.style.display = 'none'; return; }
   const q = Q.find(x => x.id === td.dataset.q), s = D.students.find(x => x.num == td.dataset.n), a = (D.ans[td.dataset.n] || {})[q.id];
-  pop.innerHTML = `<b>${s.num}번 ${esc(s.name || '')} · ${Q.indexOf(q) + 1}번</b><div style="color:var(--ink2);margin:4px 0">${ROOMS[q.room].icon} ${esc(q.short)}</div>
+  pop.innerHTML = `<b>${numLabel(s.num)} ${esc(s.name || '')} · ${Q.indexOf(q) + 1}번</b><div style="color:var(--ink2);margin:4px 0">${ROOMS[q.room].icon} ${esc(q.short)}</div>
     ${a ? `<div>학생 답: <span class="en" style="color:${a.ok ? 'var(--mintd)' : 'var(--red)'}">${esc(a.a)}</span> ${a.ok ? '⭕' : '❌'}</div>` : '<div>아직 안 풀었어요.</div>'}
     <div>정답: <span class="en">${esc(correctText(q))}</span></div>`;
   const r = td.getBoundingClientRect();
