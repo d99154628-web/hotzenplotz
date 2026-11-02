@@ -11,3 +11,11 @@
 
 - 학생: https://d99154628-web.github.io/hotzenplotz/midnight/
 - 교사: https://d99154628-web.github.io/hotzenplotz/midnight/teacher.html
+
+## 투호 챔피언십 (모둠 대항)
+
+6학년 영어 Lesson 11 2차시 (교과서 152~153쪽) — 세계 전통 놀이 축제 6부스 24문제. 처음에 맞히면 투호 화살을 던져 숨은 점수(10·20·30, 가끔 50)를 모둠 점수에 더해요.
+
+- 학생: https://d99154628-web.github.io/hotzenplotz/tuho/
+- 교사: https://d99154628-web.github.io/hotzenplotz/tuho/teacher.html
+- 연습 모드(서버 없이): 주소 끝에 `?demo`

@@ -3,7 +3,7 @@
  *  6학년 영어 Lesson 11 2차시 (교과서 152~153쪽)
  *  API_URL: Apps Script 웹 앱 주소(…/exec)
  * ===================================================================== */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyHAVLFgjCd9cQwwU0aGyKH0jNv-FKJ2evbWdf9e8_LaHRX0R6O3Kjt5siS5VVGNSg8Hw/exec';
 /* 주소 끝에 ?demo 를 붙이면 서버 없이 이 브라우저 안에서만 돌아가는 연습 모드 */
 const DEMO = !API_URL || /[?&]demo\b/.test(location.search);
 const LS = DEMO ? 'tuho26demo.' : 'tuho26.';
