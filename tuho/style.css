@@ -1,0 +1,190 @@
+/* 투호 챔피언십 — 한지 바탕 + 오방색 */
+:root{
+  --hanji:#f6efe0; --hanji2:#ece0c6; --card:#fffdf7; --ink:#2b2118; --ink2:#6a5a48; --line:#d8c7a4;
+  --red:#c8402f; --blue:#2f62a8; --yellow:#d79a1c; --green:#2f8a5a; --black:#2b2118;
+  --ok:#2f8a5a; --no:#c8402f; --shadow:0 3px 0 rgba(43,33,24,.18), 0 10px 24px rgba(43,33,24,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  font-family:'Gowun Dodum',system-ui,sans-serif;color:var(--ink);font-size:18px;line-height:1.55;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(200,64,47,.06), transparent 40%),
+    radial-gradient(ellipse at 100% 100%, rgba(47,98,168,.07), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .2 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+    var(--hanji);
+}
+button{font:inherit;color:inherit;cursor:pointer}
+.en{font-family:'Nunito',sans-serif;font-weight:800;letter-spacing:.1px}
+h1,h2,h3,.jua{font-family:'Jua',sans-serif;font-weight:400;margin:0;line-height:1.25}
+.hidden{display:none!important}
+
+/* 단청 띠 */
+.dan{height:12px;background:
+  linear-gradient(90deg,var(--red) 0 20%,var(--yellow) 20% 40%,var(--green) 40% 60%,var(--blue) 60% 80%,var(--black) 80% 100%);
+  background-size:150px 12px;}
+.dan.thin{height:6px;background-size:90px 6px}
+
+/* ---------- 상단 띠 ---------- */
+.top{position:sticky;top:0;z-index:30;background:rgba(255,253,247,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topin{display:flex;align-items:center;gap:12px;padding:8px 16px;max-width:1100px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:8px;font-family:'Jua',sans-serif;font-size:20px;white-space:nowrap}
+.brand .mini{width:30px;height:30px}
+.grow{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-family:'Jua',sans-serif;color:#fff;font-size:17px;white-space:nowrap}
+.score{font-family:'Jua',sans-serif;font-size:22px;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.score b{font-weight:400;min-width:2ch;text-align:right}
+.prog{font-size:15px;color:var(--ink2);white-space:nowrap}
+.iconbtn{border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:6px 10px;font-size:16px;line-height:1}
+.iconbtn:hover{border-color:var(--ink2)}
+
+/* ---------- 공통 ---------- */
+main{max-width:1000px;margin:0 auto;padding:22px 16px 60px}
+.card{background:var(--card);border:2px solid var(--ink);border-radius:20px;box-shadow:var(--shadow);padding:24px}
+.btn{border:2px solid var(--ink);background:var(--red);color:#fff;border-radius:16px;padding:12px 26px;font-family:'Jua',sans-serif;font-size:21px;box-shadow:0 4px 0 var(--ink);transition:transform .08s, box-shadow .08s}
+.btn:hover{filter:brightness(1.06)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.blue{background:var(--blue)} .btn.green{background:var(--green)} .btn.yellow{background:var(--yellow);color:var(--ink)}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.btn.small{font-size:16px;padding:7px 14px;border-radius:12px;box-shadow:0 3px 0 var(--ink)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.center{text-align:center}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--ink2)}
+.say{border:2px solid var(--blue);background:#eef3fb;color:var(--blue);border-radius:999px;padding:6px 14px;font-family:'Jua',sans-serif;font-size:17px}
+.say.playing{background:var(--blue);color:#fff}
+.input{font:inherit;font-size:22px;padding:10px 14px;border:2px solid var(--ink);border-radius:14px;background:#fff;width:100%;max-width:320px;text-align:center}
+.art svg{width:100%;height:100%;display:block}
+.fade{animation:fade .35s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* ---------- 시작 화면 ---------- */
+.poster{position:relative;overflow:hidden;text-align:center;padding:30px 22px 26px}
+.poster .sub{font-family:'Jua',sans-serif;color:var(--red);font-size:20px;letter-spacing:2px}
+.poster h1{font-size:clamp(38px,7vw,64px);margin:6px 0 2px;color:var(--ink)}
+.poster h1 span{color:var(--red)}
+.poster .lead{font-size:18px;color:var(--ink2);margin:6px 0 14px}
+.poster .bigpot{width:170px;height:170px;margin:6px auto 4px;animation:bob 3s ease-in-out infinite}
+.lanterns{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:0 20px;pointer-events:none}
+.lantern{width:26px;height:38px;border-radius:12px;background:var(--red);border:2px solid var(--ink);margin-top:18px;position:relative;box-shadow:0 0 18px rgba(215,154,28,.55)}
+.lantern:before{content:"";position:absolute;top:-18px;left:11px;width:2px;height:18px;background:var(--ink)}
+.lantern:nth-child(even){background:var(--blue)}
+.lantern:nth-child(3n){background:var(--yellow)}
+.form{display:grid;gap:14px;justify-items:center;margin-top:8px}
+.groups{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:640px}
+.gbtn{min-width:120px;border:2.5px solid var(--ink);border-radius:16px;padding:10px 16px;font-family:'Jua',sans-serif;font-size:20px;background:var(--card);box-shadow:0 3px 0 var(--ink)}
+.gbtn.on{color:#fff;transform:translateY(-2px)}
+.teacherlink{position:fixed;right:14px;bottom:14px;z-index:40;border:1.5px solid var(--line);background:rgba(255,253,247,.95);border-radius:999px;padding:8px 14px;font-size:15px;color:var(--ink2);text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.teacherlink:hover{color:var(--ink);border-color:var(--ink2)}
+
+/* ---------- 이야기 ---------- */
+.story{display:grid;grid-template-columns:150px 1fr;gap:22px;align-items:center}
+.story .art{width:150px;height:150px}
+.story p{margin:0 0 10px;font-size:20px}
+.bubble{position:relative;background:#fff;border:2px solid var(--ink);border-radius:18px;padding:12px 16px;margin:8px 0}
+.bubble .who{font-family:'Jua',sans-serif;color:var(--red);font-size:16px}
+.dots{display:flex;gap:6px;justify-content:center;margin-top:16px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--line)} .dots i.on{background:var(--red)}
+
+/* ---------- 축제 지도 ---------- */
+.mapgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.stall{position:relative;border:2px solid var(--ink);border-radius:18px;background:var(--card);padding:14px 10px 12px;text-align:center;box-shadow:var(--shadow)}
+.stall:before{content:"";position:absolute;left:-2px;right:-2px;top:-2px;height:16px;border-radius:18px 18px 0 0;border:2px solid var(--ink);
+  background:repeating-linear-gradient(90deg,var(--c) 0 18px,#fff 18px 36px)}
+.stall .art{width:78px;height:78px;margin:12px auto 4px}
+.stall .nm{font-family:'Jua',sans-serif;font-size:18px}
+.stall .fl{font-size:13px;color:var(--ink2)}
+.stall.lock{opacity:.5;filter:grayscale(.7)}
+.stall.now{outline:4px solid var(--yellow);outline-offset:3px;animation:bob 2s ease-in-out infinite}
+.stamp{position:absolute;right:6px;bottom:6px;width:58px;height:58px;border:3px solid var(--red);border-radius:50%;color:var(--red);display:grid;place-items:center;
+  font-family:'Jua',sans-serif;font-size:15px;transform:rotate(-14deg);background:rgba(255,255,255,.8);line-height:1.05;text-align:center}
+.stamp.new{animation:stampIn .6s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stampIn{0%{transform:scale(2.4) rotate(-30deg);opacity:0}100%{transform:scale(1) rotate(-14deg);opacity:1}}
+
+/* ---------- 부스 소개 ---------- */
+.boothhead{display:flex;align-items:center;gap:22px}
+.boothhead .art{width:150px;height:150px;flex:none;background:#fff;border:2px solid var(--ink);border-radius:20px;padding:10px}
+.tag{display:inline-block;font-family:'Jua',sans-serif;font-size:15px;padding:3px 12px;border-radius:999px;color:#fff;background:var(--c,var(--red))}
+
+/* ---------- 문제 ---------- */
+.qtop{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.qno{font-family:'Jua',sans-serif;font-size:18px;color:var(--ink2)}
+.qbody{display:flex;gap:20px;align-items:center}
+.qbody .art{width:140px;height:140px;flex:none;background:#fff;border:2px solid var(--ink);border-radius:18px;padding:8px}
+.qq{font-family:'Jua',sans-serif;font-size:24px;margin:0 0 10px}
+.enbox{background:#fff;border:2px dashed var(--line);border-radius:14px;padding:10px 16px;font-size:21px;white-space:pre-line}
+.choices{display:grid;gap:12px;margin-top:18px}
+.choice{text-align:left;border:2.5px solid var(--ink);border-radius:16px;background:#fff;padding:14px 18px;font-size:21px;box-shadow:0 3px 0 var(--ink);display:flex;align-items:center;gap:12px;transition:transform .08s}
+.choice:hover:not(:disabled){background:#fff8e6;transform:translateY(-1px)}
+.choice .k{flex:none;width:32px;height:32px;border-radius:50%;background:var(--hanji2);display:grid;place-items:center;font-family:'Jua',sans-serif;font-size:17px}
+.choice.no{border-color:var(--no);background:#fbe9e6;animation:shake .35s}
+.choice.no .k{background:var(--no);color:#fff}
+.choice.yes{border-color:var(--ok);background:#e6f4ea}
+.choice.yes .k{background:var(--ok);color:#fff}
+.choice:disabled{cursor:default}
+.choices.pics{grid-template-columns:repeat(3,1fr)}
+.choices.pics .choice{flex-direction:column;text-align:center;padding:12px}
+.choices.pics .art{width:110px;height:110px}
+.feedback{margin-top:16px;border-radius:16px;padding:14px 18px;font-size:19px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.feedback.good{background:#e6f4ea;border:2px solid var(--ok)}
+.feedback.bad{background:#fbe9e6;border:2px solid var(--no)}
+.feedback.try{background:#fff6dc;border:2px solid var(--yellow)}
+.feedback b{font-family:'Jua',sans-serif;font-weight:400;font-size:22px}
+
+/* 순서 맞추기 */
+.slots{display:grid;gap:10px;margin-top:16px}
+.slot{min-height:56px;border:2.5px dashed var(--line);border-radius:14px;display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:20px;background:rgba(255,255,255,.5)}
+.slot .n{font-family:'Jua',sans-serif;color:var(--ink2);flex:none;width:28px}
+.slot.filled{border-style:solid;border-color:var(--blue);background:#fff;cursor:pointer}
+.pool{display:grid;gap:10px;margin-top:16px}
+.piece{border:2.5px solid var(--ink);border-radius:14px;background:#fff;padding:12px 16px;font-size:20px;text-align:left;box-shadow:0 3px 0 var(--ink)}
+.piece:hover{background:#fff8e6}
+
+/* ---------- 투호 던지기 ---------- */
+.throwwrap{text-align:center}
+.throwwrap h2{font-size:30px}
+.potstage{position:relative;max-width:440px;margin:0 auto}
+.potstage svg{max-height:52vh}
+.potstage svg{width:100%;height:auto;display:block;overflow:visible}
+.hole{cursor:pointer}
+.hole .ring{transition:stroke-width .15s}
+.hole:hover .ring{stroke:var(--yellow);stroke-width:7}
+.hole .glow{opacity:0;transition:opacity .2s}
+.hole:hover .glow{opacity:.55}
+.lockhole .hole{cursor:default}
+.lockhole .hole:hover .ring{stroke:#3b2414;stroke-width:4}
+.ptag{font-family:'Jua',sans-serif}
+.result{margin-top:10px;font-family:'Jua',sans-serif;font-size:30px;min-height:46px}
+.result.gold{color:#b8860b;text-shadow:0 0 18px rgba(215,154,28,.6)}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:10px;height:16px;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+/* ---------- 순위판 ---------- */
+.board{display:grid;gap:10px}
+.brow{display:grid;grid-template-columns:44px 140px 1fr 70px;align-items:center;gap:10px}
+.brow .rk{font-family:'Jua',sans-serif;font-size:22px;text-align:center}
+.brow .nm{font-family:'Jua',sans-serif;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:26px;background:var(--hanji2);border-radius:999px;overflow:hidden;border:1.5px solid var(--ink)}
+.bar i{display:block;height:100%;border-radius:999px;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.brow .pt{font-family:'Jua',sans-serif;font-size:22px;text-align:right}
+.brow.me .nm{text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:4px}
+.popboard{position:fixed;top:64px;right:16px;z-index:35;width:min(420px,calc(100vw - 32px))}
+
+/* 오버레이 */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(43,33,24,.55);display:grid;place-items:center;padding:16px}
+.overlay .card{max-width:620px;width:100%;max-height:calc(100vh - 32px);overflow:auto;animation:pop .4s both}
+.trophy{font-size:84px;line-height:1;animation:bob 2.2s ease-in-out infinite}
+
+@media (max-width:700px){
+  .story{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .qbody{flex-direction:column}
+  .mapgrid{grid-template-columns:repeat(2,1fr)}
+  .boothhead{flex-direction:column;text-align:center}
+  .choices.pics .art{width:72px;height:72px}
+  .brow{grid-template-columns:34px 90px 1fr 54px}
+  .prog,.brand span{display:none}
+}

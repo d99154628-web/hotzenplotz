@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>투호 챔피언십 · 교사용</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+main{max-width:1280px}
+.bar2{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;border:2px solid var(--ink);border-radius:14px;overflow:hidden}
+.seg button{border:0;background:var(--card);padding:9px 16px;font-family:'Jua',sans-serif;font-size:17px;border-right:2px solid var(--ink)}
+.seg button:last-child{border-right:0}
+.seg button.on{color:#fff}
+.seg button.on[data-o=wait]{background:var(--ink2)} .seg button.on[data-o=open]{background:var(--green)} .seg button.on[data-o=closed]{background:var(--yellow);color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-top:16px}
+.gcard{background:var(--card);border:2px solid var(--ink);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.ghead{display:flex;align-items:center;gap:8px;padding:10px 14px;color:#fff}
+.ghead .nm{font-family:'Jua',sans-serif;font-size:21px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ghead .tot{font-family:'Jua',sans-serif;font-size:26px}
+.adj{display:flex;gap:6px;padding:8px 12px;white-space:nowrap;border-bottom:1px solid var(--line);align-items:center;font-size:14px;color:var(--ink2)}
+.adj button{border:1.5px solid var(--ink);background:#fff;border-radius:10px;padding:2px 9px;font-family:'Jua',sans-serif;font-size:15px}
+.mem{display:grid;grid-template-columns:12px 1fr 92px 52px;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px dashed var(--line);font-size:16px}
+.mem:last-child{border-bottom:0}
+.dot{width:10px;height:10px;border-radius:50%;background:#c9bda6}
+.dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(47,138,90,.2)}
+.mbar{height:10px;border-radius:999px;background:var(--hanji2);overflow:hidden;border:1px solid var(--line)}
+.mbar i{display:block;height:100%}
+.mem .s{font-size:13px;color:var(--ink2)}
+.mem .p{text-align:right;font-family:'Jua',sans-serif}
+.side{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.feed div{padding:6px 0;border-bottom:1px dashed var(--line);font-size:16px}
+.small{font-size:14px;color:var(--ink2)}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px}
+.names input{font:inherit;padding:6px 10px;border:2px solid var(--ink);border-radius:10px;width:100%}
+.big{position:fixed;inset:0;z-index:70;background:var(--hanji);padding:30px 6vw;overflow:auto}
+.big h1{font-size:52px;text-align:center}
+.big .brow{grid-template-columns:70px 240px 1fr 120px;gap:18px}
+.big .brow .rk{font-size:40px} .big .brow .nm{font-size:34px} .big .brow .pt{font-size:40px}
+.big .bar{height:46px}
+.big .board{gap:22px;margin-top:30px}
+.gate{max-width:420px;margin:80px auto}
+@media (max-width:800px){.side{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="dan"></div>
+<main id="app"></main>
+<div id="bigview"></div>
+<script src="demo.js"></script>
+<script src="common.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const app = $('#app');
+let PW = sessionStorage.getItem('tuho-pw') || '';
+let D = null, timer = null, bigOn = false, editing = false;
+
+function gate(msg) {
+  app.innerHTML = `<div class="card gate center fade"><div class="art" style="width:110px;height:110px;margin:0 auto">${ART.tuho}</div>
+    <h2 style="font-size:28px;margin:8px 0">교사용 화면</h2><p class="muted">비밀번호를 입력해 주세요.</p>
+    <input class="input" id="pw" type="password" inputmode="numeric" maxlength="12" autofocus>
+    <p style="color:var(--no);min-height:24px;margin:8px 0">${msg || ''}</p>
+    <button class="btn" id="go">들어가기</button>
+    <p style="margin-top:16px"><a href="index.html${DEMO ? '?demo' : ''}" class="small">← 학생 화면으로</a></p></div>`;
+  $('#pw').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+  $('#go').onclick = async () => {
+    PW = $('#pw').value.trim(); $('#go').disabled = true;
+    const r = await call({ action: 'dash' });
+    if (r && r.ok) { sessionStorage.setItem('tuho-pw', PW); D = r; render(); start(); }
+    else { PW = ''; gate(r && r.error === 'pw' ? '비밀번호가 맞지 않아요.' : '서버에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
+  };
+}
+async function call(p) { try { return await api(Object.assign({ pw: PW }, p), 2); } catch (e) { return null; } }
+function start() { clearInterval(timer); timer = setInterval(refresh, 4000); }
+async function refresh() { if (editing) return; const r = await call({ action: 'dash' }); if (r && r.ok) { D = r; render(); } else if (r && r.error === 'pw') { sessionStorage.removeItem('tuho-pw'); gate('비밀번호를 다시 입력해 주세요.'); } }
+
+function boardRows() {
+  const arr = D.names.map((n, i) => ({ i, n, p: D.totals[i] || 0 })).sort((a, b) => b.p - a.p);
+  const max = Math.max(50, ...arr.map(x => x.p)); let rank = 0, prev = null;
+  return `<div class="board">${arr.map((x, k) => { if (x.p !== prev) { rank = k + 1; prev = x.p; } return `<div class="brow"><div class="rk">${rank === 1 && x.p > 0 ? '👑' : rank}</div><div class="nm">${TEAMI[x.i]} ${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:${TEAMC[x.i]}"></i></div><div class="pt">${x.p}</div></div>`; }).join('')}</div>`;
+}
+function ago(ms) { const s = Math.round((Date.now() - ms) / 1000); return s < 60 ? `${s}초 전` : `${Math.round(s / 60)}분 전`; }
+
+function render() {
+  if (!D) return;
+  const studs = D.students || [];
+  const joined = studs.length, done = studs.filter(s => s.done).length;
+  const focusId = document.activeElement && document.activeElement.id;
+  app.innerHTML = `
+  <div class="card" style="padding:16px 20px">
+    <div class="bar2">
+      <div class="art" style="width:46px;height:46px">${ART.tuho}</div>
+      <div><h1 style="font-size:28px">투호 챔피언십 · 교사용</h1><div class="small">Lesson 11 2차시 (교과서 152~153쪽) · 참가 ${joined}명 · 완주 ${done}명${DEMO ? ' · <b style="color:var(--no)">연습 모드</b>' : ''}</div></div>
+      <div class="grow"></div>
+      <div class="seg" id="seg">${[['wait', '⏸ 입장 준비'], ['open', '▶ 축제 시작'], ['closed', '🏆 시상식']].map(([o, t]) => `<button data-o="${o}" class="${D.open === o ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <button class="btn small yellow" id="bigBtn">📺 전광판</button>
+    </div>
+    <p class="small" style="margin:10px 0 0">입장 준비: 학생들이 이름과 모둠만 고르고 기다려요. · 축제 시작: 문제를 풀어요 (중간에 '입장 준비'를 누르면 잠깐 멈춤). · 시상식: 모든 학생 화면에 우승 모둠이 떠요.</p>
+  </div>
+
+  <div class="grid">${D.names.map((n, g) => {
+    const mem = studs.filter(s => s.g === g).sort((a, b) => b.qi - a.qi);
+    return `<div class="gcard"><div class="ghead" style="background:${TEAMC[g]}"><span style="font-size:22px">${TEAMI[g]}</span><span class="nm">${esc(n)}</span><span class="tot">${D.totals[g] || 0}점</span></div>
+      <div class="adj">점수 <button data-adj="${g}" data-d="5">+5</button><button data-adj="${g}" data-d="10">+10</button><button data-adj="${g}" data-d="-5">−5</button><button data-adj="${g}" data-d="-10">−10</button><span class="grow"></span>${mem.length}명</div>
+      ${mem.length ? mem.map(s => {
+        const on = Date.now() - s.updated < 90000, pct = Math.round(s.qi / Q.length * 100), b = s.qi >= Q.length ? null : BOOTHS[Q[s.qi].b];
+        return `<div class="mem"><span class="dot ${on ? 'on' : ''}" title="${ago(s.updated)}"></span>
+          <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)} ${s.done ? '✅' : ''}</div><div class="s">${s.done ? '완주!' : b ? `${b.flag} ${b.place}` : ''} · 첫 정답 ${s.first}</div></div>
+          <div><div class="mbar"><i style="width:${pct}%;background:${TEAMC[g]}"></i></div><div class="s">${s.qi} / ${Q.length}</div></div>
+          <div class="p">+${s.pts}</div></div>`;
+      }).join('') : `<div class="small" style="padding:12px 14px">아직 들어온 학생이 없어요</div>`}</div>`;
+  }).join('')}</div>
+
+  <div class="side">
+    <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : '🏹'} <b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b> ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
+    <div class="card"><h3>🤔 많이 틀린 문제</h3><div class="feed" style="margin-top:8px">${(D.hard || []).map(h => { const q = Q[h.qi - 1]; return `<div><b>${h.qi}번</b> ${q ? esc(q.q) : ''} <span class="small">· ${h.wrong}/${h.n}명 처음에 틀림</span></div>`; }).join('') || '<div class="small">아직 없어요</div>'}</div></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>⚙️ 모둠 설정</h3>
+    <div class="row" style="margin-top:10px">모둠 수
+      <select id="n" class="input" style="width:90px;font-size:18px;padding:6px">${[2, 3, 4, 5, 6, 7, 8].map(k => `<option ${k === D.n ? 'selected' : ''}>${k}</option>`).join('')}</select>
+      <span class="small">모둠 이름은 아래에서 바꿀 수 있어요.</span></div>
+    <div class="names">${D.allNames.slice(0, 8).map((n, i) => `<input id="nm${i}" value="${esc(n)}" maxlength="12" style="border-color:${TEAMC[i]};${i >= D.n ? 'opacity:.4' : ''}">`).join('')}</div>
+    <div class="row" style="margin-top:12px"><button class="btn small green" id="saveCfg">설정 저장</button>
+      <div class="grow"></div>
+      <button class="btn small ghost" id="reset">🔄 새 수업 시작 (점수·학생 모두 지우기)</button></div>
+    <p class="small" style="margin:10px 0 0">학생 화면: <a href="index.html${DEMO ? '?demo' : ''}" target="_blank">${location.href.replace(/teacher\.html.*$/, '')}</a></p>
+  </div>`;
+  if (focusId && $('#' + focusId)) $('#' + focusId).focus();
+  bind();
+  if (bigOn) paintBig();
+}
+
+function bind() {
+  app.querySelectorAll('#seg button').forEach(b => b.onclick = async () => {
+    if (b.dataset.o === 'closed' && !confirm('시상식을 열까요? 모든 학생 화면에 우승 모둠이 나타나요.')) return;
+    const r = await call({ action: 'config', open: b.dataset.o }); if (r && r.ok) { D = r; render(); if (b.dataset.o === 'closed') { bigOn = true; paintBig(); } }
+  });
+  app.querySelectorAll('[data-adj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjust', group: Number(b.dataset.adj), delta: Number(b.dataset.d) }); if (r && r.ok) { D = r; render(); } });
+  app.querySelectorAll('.names input, #n').forEach(el => { el.onfocus = () => editing = true; el.onblur = () => setTimeout(() => editing = false, 300); });
+  $('#saveCfg').onclick = async () => {
+    const names = []; for (let i = 0; i < 8; i++) names.push($('#nm' + i).value);
+    editing = false;
+    const r = await call({ action: 'config', n: Number($('#n').value), names }); if (r && r.ok) { D = r; render(); }
+  };
+  $('#reset').onclick = async () => {
+    if (!confirm('새 수업을 시작할까요?\n모둠 점수와 학생 기록이 모두 지워지고, 학생들은 다시 입장해야 해요.\n(구글 시트의 "기록" 탭은 남아 있어요.)')) return;
+    const r = await call({ action: 'reset' }); if (r && r.ok) { D = r; render(); }
+  };
+  $('#bigBtn').onclick = () => { bigOn = true; paintBig(); };
+}
+function paintBig() {
+  const top = Math.max(0, ...D.totals), win = D.names.map((n, i) => ({ n, i, p: D.totals[i] })).filter(x => x.p === top && top > 0);
+  $('#bigview').innerHTML = `<div class="big"><div class="dan" style="margin:-30px -6vw 20px"></div>
+    <h1>${D.open === 'closed' ? '🏆 투호 챔피언!' : '🏹 투호 챔피언십 전광판'}</h1>
+    ${D.open === 'closed' && win.length ? `<p class="jua center" style="font-size:44px;margin:10px 0">${win.map(w => `<span style="color:${TEAMC[w.i]}">${TEAMI[w.i]} ${esc(w.n)}</span>`).join(' · ')} <span style="color:var(--ink)">${top}점</span></p>` : ''}
+    ${boardRows()}
+    <div class="center" style="margin-top:30px"><button class="btn ghost" id="closeBig">닫기</button></div></div>`;
+  $('#closeBig').onclick = () => { bigOn = false; $('#bigview').innerHTML = ''; };
+}
+
+if (PW) { call({ action: 'dash' }).then(r => { if (r && r.ok) { D = r; render(); start(); } else gate(); }); }
+else gate();
+</script>
+</body>
+</html>

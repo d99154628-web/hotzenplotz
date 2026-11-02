@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>투호 챔피언십</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top hidden" id="top">
+  <div class="dan thin"></div>
+  <div class="topin">
+    <div class="brand"><div class="art mini" id="brandArt"></div><span>투호 챔피언십</span></div>
+    <span class="chip" id="teamChip"></span>
+    <div class="score">🏹 <b id="teamScore">0</b>점</div>
+    <div class="grow"></div>
+    <div class="prog" id="prog"></div>
+    <button class="iconbtn" id="boardBtn" title="모둠 순위">🏆 순위</button>
+    <button class="iconbtn" id="muteBtn" title="소리 켜기/끄기">🔊</button>
+    <a class="iconbtn" id="teacherTop" href="teacher.html" title="교사용 화면 (비밀번호)" style="text-decoration:none">🔒 교사용</a>
+  </div>
+</div>
+<div class="popboard card hidden" id="popboard"></div>
+<main id="app"></main>
+<a class="teacherlink" id="teacherLink" href="teacher.html">🔒 교사용 화면</a>
+<div id="overlay"></div>
+
+<script src="demo.js"></script>
+<script src="common.js"></script>
+<script>
+/* =====================================================================
+ *  학생 화면
+ * ===================================================================== */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+let SRV = null;                 // 서버에서 받은 최신 상태
+let me = null;                  // 나 (이름·모둠·진행 상황)
+let pickGroup = -1;
+let busy = false;
+let pollTimer = null;
+
+if (DEMO) { $('#teacherLink').href = 'teacher.html?demo'; $('#teacherTop').href = 'teacher.html?demo'; }
+$('#brandArt').innerHTML = ART.tuho;
+
+function saveMe() { if (me) lsSet('me', JSON.stringify(me)); }
+function loadMe() { try { return JSON.parse(lsGet('me') || 'null'); } catch (e) { return null; } }
+function pendingPts() { return SendQueue.load().reduce((s, x) => s + (Number(x.pts) || 0), 0); }
+function teamTotal(g) { return ((SRV && SRV.totals[g]) || 0) + (me && me.group === g ? pendingPts() : 0); }
+function teamName(g) { return (SRV && SRV.names[g]) || (g + 1) + '모둠'; }
+
+/* ---------- 상단 띠 ---------- */
+let shownScore = 0;
+function paintTop() {
+  if (!me || me.group == null || !SRV) { $('#top').classList.add('hidden'); $('#teacherLink').classList.remove('hidden'); return; }
+  $('#top').classList.remove('hidden'); $('#teacherLink').classList.add('hidden');
+  const g = me.group, c = TEAMC[g];
+  $('#teamChip').style.background = c;
+  $('#teamChip').textContent = `${TEAMI[g]} ${teamName(g)} · ${me.name}`;
+  const t = teamTotal(g);
+  if (t !== shownScore) { countUp($('#teamScore'), shownScore, t); shownScore = t; }
+  $('#prog').textContent = me.qi >= Q.length ? '축제 완주!' : `문제 ${Math.min(me.qi + 1, Q.length)} / ${Q.length}`;
+  if (!$('#popboard').classList.contains('hidden')) $('#popboard').innerHTML = boardHTML(true);
+}
+function boardHTML(withTitle) {
+  if (!SRV) return '';
+  const arr = SRV.names.map((n, i) => ({ i, n, p: teamTotal(i) })).sort((a, b) => b.p - a.p);
+  const max = Math.max(50, ...arr.map(x => x.p));
+  let rank = 0, prev = null;
+  return (withTitle ? `<h3 style="margin-bottom:10px">🏆 지금 모둠 순위</h3>` : '') + `<div class="board">${arr.map((x, k) => {
+    if (x.p !== prev) { rank = k + 1; prev = x.p; }
+    return `<div class="brow ${me && me.group === x.i ? 'me' : ''}"><div class="rk">${rank === 1 && x.p > 0 ? '👑' : rank}</div><div class="nm">${TEAMI[x.i]} ${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:${TEAMC[x.i]}"></i></div><div class="pt">${x.p}</div></div>`;
+  }).join('')}</div>`;
+}
+$('#boardBtn').onclick = () => { SFX.click(); const b = $('#popboard'); b.classList.toggle('hidden'); b.innerHTML = boardHTML(true); };
+function paintMute() { $('#muteBtn').textContent = muted ? '🔇' : '🔊'; }
+$('#muteBtn').onclick = () => { muted = !muted; lsSet('mute', muted ? '1' : '0'); paintMute(); if (muted) try { speechSynthesis.cancel(); } catch (e) {} };
+paintMute();
+
+/* ---------- 서버 상태 받아오기 ---------- */
+async function poll() {
+  try {
+    const s = await api({ action: 'state' });
+    if (!s || !s.ok) return;
+    const first = !SRV;
+    SRV = s;
+    if (me && me.sid && me.sid !== s.sid) {      // 선생님이 새 수업을 시작함
+      me = null; lsDel('me'); lsDel('queue');
+      showOverlay(`<div class="card center"><div class="trophy">🎐</div><h2 style="margin:10px 0">새 축제가 시작됐어요!</h2><p>선생님이 새로 시작하셨어요. 다시 이름을 적고 모둠을 골라 주세요.</p><button class="btn" onclick="hideOverlay();renderStart()">확인</button></div>`);
+      return;
+    }
+    if (me && me.group != null && me.group >= s.n) { me.group = null; saveMe(); renderStart(); return; }
+    if (first) route();
+    else if (!me || me.group == null) { if ($('#startForm')) paintGroups(); }
+    paintTop();
+    checkGate();
+  } catch (e) {
+    if (!SRV) app.innerHTML = `<div class="card center fade" style="margin-top:40px"><h2>축제장에 연결하는 중…</h2><p class="muted">인터넷 연결을 확인하고 잠시만 기다려 주세요.</p></div>`;
+  }
+}
+function startPolling() { clearInterval(pollTimer); pollTimer = setInterval(poll, 6000); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+/* 선생님이 '준비'나 '시상식'으로 바꾸면 화면을 막음 */
+let gateShown = '';
+function checkGate() {
+  if (!me || me.group == null || !SRV) return;
+  if (SRV.open === 'closed') { if (gateShown !== 'closed') { gateShown = 'closed'; showAward(); } else updateAward(); return; }
+  if (SRV.open === 'wait' && me.phase !== 'wait') {
+    if (gateShown !== 'pause') { gateShown = 'pause'; showOverlay(`<div class="card center"><div class="trophy">⏸️</div><h2 style="margin:10px 0">잠깐! 쉬는 시간이에요</h2><p>선생님이 축제를 잠시 멈추셨어요. 앞을 봐 주세요.</p></div>`); }
+    return;
+  }
+  if (gateShown) { gateShown = ''; hideOverlay(); }
+  if (me.phase === 'wait' && SRV.open === 'open') { me.phase = 'story'; me.story = 0; saveMe(); route(); }
+}
+function showOverlay(html) { $('#overlay').innerHTML = `<div class="overlay">${html}</div>`; }
+function hideOverlay() { $('#overlay').innerHTML = ''; }
+
+/* ---------- 화면 고르기 ---------- */
+function route() {
+  window.scrollTo(0, 0);
+  if (!me || me.group == null) return renderStart();
+  paintTop();
+  switch (me.phase) {
+    case 'wait': return renderWait();
+    case 'story': return renderStory();
+    case 'map': return renderMap();
+    case 'booth': return renderBooth();
+    case 'q': return renderQ();
+    case 'done': return renderDone();
+    case 'next': return next();
+    default: me.phase = 'story'; me.story = 0; return renderStory();
+  }
+}
+
+/* ---------- 1. 입장 ---------- */
+function renderStart() {
+  $('#top').classList.add('hidden'); $('#teacherLink').classList.remove('hidden');
+  const name = (me && me.name) || lsGet('name') || '';
+  app.innerHTML = `<section class="card poster fade">
+    <div class="lanterns">${'<div class="lantern"></div>'.repeat(7)}</div>
+    <div class="sub" style="margin-top:34px">민속 박물관 · 세계 전통 놀이 축제</div>
+    <h1>투호 <span>챔피언십</span></h1>
+    <div class="art bigpot">${ART.tuho}</div>
+    <p class="lead en" style="font-size:22px">Do you know anything about Tuho?</p>
+    <div class="form" id="startForm">
+      <input class="input" id="nm" maxlength="12" placeholder="내 이름" value="${esc(name)}" autocomplete="off">
+      <div class="muted">우리 모둠을 골라요</div>
+      <div class="groups" id="groups"></div>
+      <button class="btn" id="enter" disabled>축제장 입장! 🎐</button>
+      <div class="muted" id="startMsg" style="font-size:15px"></div>
+    </div>
+  </section>`;
+  paintGroups();
+  $('#nm').oninput = checkStart;
+  $('#enter').onclick = join;
+  checkStart();
+}
+function paintGroups() {
+  const box = $('#groups'); if (!box || !SRV) return;
+  if (pickGroup >= SRV.n) pickGroup = -1;
+  box.innerHTML = SRV.names.map((n, i) => `<button class="gbtn ${pickGroup === i ? 'on' : ''}" style="${pickGroup === i ? `background:${TEAMC[i]};` : `border-color:${TEAMC[i]};`}" data-g="${i}">${TEAMI[i]} ${esc(n)}</button>`).join('');
+  box.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { SFX.click(); pickGroup = Number(b.dataset.g); paintGroups(); checkStart(); });
+}
+function checkStart() { const ok = $('#nm').value.trim().length > 0 && pickGroup >= 0; $('#enter').disabled = !ok; }
+async function join() {
+  if (busy) return; busy = true;
+  const name = $('#nm').value.trim().slice(0, 12);
+  $('#enter').disabled = true; $('#startMsg').textContent = '입장하는 중…';
+  lsSet('name', name);
+  const id = (me && me.id) || uid();
+  try {
+    const r = await api({ action: 'join', sid: SRV.sid, id, group: pickGroup, name }, 3);
+    if (!r.ok) { if (r.state) SRV = r.state; $('#startMsg').textContent = '다시 한 번 눌러 주세요.'; paintGroups(); $('#enter').disabled = false; return; }
+    SRV = r;
+    const keep = me && me.sid === SRV.sid && me.id === id;
+    me = keep ? Object.assign(me, { name, group: pickGroup }) : { id, name, group: pickGroup, sid: SRV.sid, qi: 0, pts: 0, phase: 'wait', story: 0 };
+    if (!keep) me.phase = SRV.open === 'open' ? 'story' : 'wait';
+    saveMe(); SFX.start();
+    route(); checkGate();
+  } catch (e) { $('#startMsg').textContent = '연결이 잠깐 끊겼어요. 다시 눌러 주세요.'; $('#enter').disabled = false; }
+  finally { busy = false; }
+}
+
+/* ---------- 2. 기다리기 ---------- */
+function renderWait() {
+  app.innerHTML = `<section class="card center fade" style="margin-top:20px">
+    <div class="art" style="width:130px;height:130px;margin:0 auto;animation:bob 2.4s ease-in-out infinite">${ART.tuho}</div>
+    <h2 style="font-size:32px;margin:12px 0 6px">입장 완료!</h2>
+    <p style="font-size:20px"><b style="color:${TEAMC[me.group]}">${TEAMI[me.group]} ${esc(teamName(me.group))}</b> ${esc(me.name)}, 어서 와요.</p>
+    <p class="muted">선생님이 "축제 시작!"을 누르면 바로 시작해요. 잠시만 기다려요.</p>
+  </section>`;
+}
+
+/* ---------- 3. 이야기 ---------- */
+const STORY = [
+  { art: 'tuho', html: `<p>오늘은 민속 박물관에서 <b>세계 전통 놀이 축제</b>가 열리는 날이에요.</p><p>세계 여러 나라 친구들이 자기 나라의 물건과 놀이를 가지고 모였어요. 우리 모둠도 축제에 참가했어요!</p>` },
+  { art: 'ques', html: `<div class="bubble"><div class="who">축제 진행자</div><span class="en">Welcome to the festival!</span><br>축제장에는 부스가 <b>여섯 곳</b> 있어요. 부스 친구들이 이렇게 물어볼 거예요.</div>
+     <div class="bubble"><span class="en">Do you know anything about Tuho?</span> <button class="say" data-say="Do you know anything about Tuho?">🔊</button><br><span class="muted">투호에 대해 알고 있니?</span></div>
+     <p>알면 <b class="en">Yes, I do.</b> 모르면 <b class="en">No, I don't.</b> 또는 <b class="en">I have no idea.</b></p>` },
+  { art: 'tuho', html: `<p>🏹 <b>처음에 정답</b>을 맞히면 <b>투호 화살</b>을 던질 수 있어요.</p>
+     <p>항아리에는 구멍이 세 개! <b>왼쪽 귀, 가운데 입, 오른쪽 귀</b>. 어느 구멍이 높은 점수인지는 던지기 전엔 아무도 몰라요. 운이 좋으면 <b style="color:#b8860b">황금 화살 50점</b>!</p>
+     <p>두 번째에 맞히면 <b>연습 화살 +5점</b>. 틀려도 점수는 깎이지 않아요.</p>
+     <p>모은 점수는 모두 <b>우리 모둠 점수</b>로! 가장 높은 모둠이 <b>투호 챔피언</b>이에요. 🏆</p>` }
+];
+function renderStory() {
+  const k = me.story || 0, s = STORY[k];
+  app.innerHTML = `<section class="card fade">
+    <div class="story"><div class="art">${ART[s.art]}</div><div>${s.html}</div></div>
+    <div class="dots">${STORY.map((_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="row" style="justify-content:center;margin-top:16px">
+      ${k > 0 ? `<button class="btn ghost" id="prev">← 앞으로</button>` : ''}
+      <button class="btn ${k === STORY.length - 1 ? '' : 'blue'}" id="next">${k === STORY.length - 1 ? '축제 지도 보기 🗺️' : '다음 →'}</button>
+    </div></section>`;
+  bindSay();
+  if ($('#prev')) $('#prev').onclick = () => { SFX.click(); me.story = k - 1; saveMe(); renderStory(); };
+  $('#next').onclick = () => {
+    SFX.click();
+    if (k < STORY.length - 1) { me.story = k + 1; saveMe(); renderStory(); }
+    else { me.phase = 'map'; saveMe(); route(); }
+  };
+}
+function bindSay(root) {
+  (root || app).querySelectorAll('[data-say]').forEach(b => b.onclick = () => {
+    b.classList.add('playing'); say(b.dataset.say.split('|'), () => b.classList.remove('playing'));
+    setTimeout(() => b.classList.remove('playing'), 6000);
+  });
+}
+
+/* ---------- 4. 축제 지도 ---------- */
+function curBooth() { return me.qi >= Q.length ? BOOTHS.length : Q[me.qi].b; }
+function renderMap() {
+  const cb = curBooth(), fresh = me.newStamp;
+  me.newStamp = null; saveMe();
+  app.innerHTML = `<section class="fade">
+    <div class="card" style="padding:18px 22px"><h2 style="font-size:28px">🗺️ 축제 지도</h2>
+    <p class="muted" style="margin:4px 0 0">${cb >= BOOTHS.length ? '모든 부스를 다 돌았어요!' : `이번에 갈 곳은 <b style="color:var(--ink)">${BOOTHS[cb].place}</b>이에요. 부스를 다 돌면 도장을 받아요.`}</p></div>
+    <div class="mapgrid">${BOOTHS.map((b, i) => `<div class="stall ${i < cb ? 'done' : i === cb ? 'now' : 'lock'}" style="--c:${b.color}">
+      <div class="art">${ART[b.art]}</div><div class="nm">${b.flag} ${b.place}</div><div class="fl en">${b.item}</div>
+      ${i < cb ? `<div class="stamp ${fresh === i ? 'new' : ''}">참 잘<br>했어요</div>` : ''}</div>`).join('')}</div>
+    <div class="center" style="margin-top:20px"><button class="btn" id="go">${cb >= BOOTHS.length ? '결과 보러 가기 🏆' : `${BOOTHS[cb].place}(으)로 가기 →`}</button></div>
+    <div class="card" style="margin-top:20px;padding:18px 22px">${boardHTML(true)}</div>
+  </section>`;
+  if (fresh != null) setTimeout(() => SFX.drum(), 150);
+  $('#go').onclick = () => { SFX.click(); if (cb >= BOOTHS.length) { me.phase = 'done'; } else me.phase = 'booth'; saveMe(); route(); };
+}
+
+/* ---------- 5. 부스 도착 ---------- */
+function renderBooth() {
+  const b = BOOTHS[curBooth()], n = Q.filter(x => x.b === curBooth()).length;
+  app.innerHTML = `<section class="card fade">
+    <span class="tag" style="--c:${b.color}">부스 ${curBooth() + 1} / ${BOOTHS.length}</span>
+    <div class="boothhead" style="margin-top:12px"><div class="art">${ART[b.art]}</div>
+      <div><h2 style="font-size:32px">${b.flag} ${b.place}</h2>
+      <p style="font-size:19px;margin:6px 0">${b.helloKr}</p>
+      <div class="bubble"><div class="who">${esc(b.host)}</div>${b.hello.map(l => `<div class="en">${esc(l)}</div>`).join('')}
+        <div style="margin-top:6px"><button class="say" data-say="${esc(b.hello.join('|'))}">🔊 들어 보기</button></div></div></div></div>
+    <p class="muted center">이 부스의 문제는 ${n}개예요.</p>
+    <div class="center"><button class="btn" id="go">문제 풀기 시작! ✏️</button></div>
+  </section>`;
+  bindSay();
+  setTimeout(() => { const s = app.querySelector('[data-say]'); if (s && me.phase === 'booth') s.click(); }, 500);
+  $('#go').onclick = () => { SFX.click(); try { speechSynthesis.cancel(); } catch (e) {} me.phase = 'q'; me.tries = 0; saveMe(); route(); };
+}
+
+/* ---------- 6. 문제 ---------- */
+let cur = null;   // 지금 문제의 화면 상태
+function renderQ() {
+  const i = me.qi, q = Q[i], b = BOOTHS[q.b];
+  cur = { i, tries: 0, picked: [], order: q.t === 'order' ? shuffleNot(q.lines.map((_, k) => k)) : null, sel: [] };
+  if (q.t === 'pick') cur.map = shuffle(q.c.map((_, k) => k));
+  app.innerHTML = `<section class="card fade" id="qcard">
+    <div class="qtop"><span class="tag" style="--c:${b.color}">${b.flag} ${b.place}</span><span class="qno">문제 ${i + 1} / ${Q.length}</span><div class="grow"></div>
+      ${q.say ? `<button class="say" data-say="${esc(q.say.join('|'))}">🔊 다시 듣기</button>` : ''}</div>
+    <div class="qbody">${q.art ? `<div class="art">${ART[q.art]}</div>` : ''}
+      <div style="flex:1;min-width:0"><p class="qq">${esc(q.q)}</p>${q.en ? `<div class="enbox en">${esc(q.en)}</div>` : ''}</div></div>
+    <div id="ans"></div><div id="fb"></div>
+  </section>`;
+  bindSay();
+  if (q.say && q.auto) setTimeout(() => { const s = app.querySelector('[data-say]'); if (s) s.click(); }, 450);
+  q.t === 'pick' ? paintPick() : paintOrder();
+}
+function shuffleNot(a) { if (a.length < 2) return a; let s; do { s = shuffle(a); } while (s.every((v, k) => v === a[k])); return s; }
+
+function paintPick() {
+  const q = Q[cur.i], pics = !!q.cart;
+  $('#ans').innerHTML = `<div class="choices ${pics ? 'pics' : ''}">${cur.map.map((k, n) => `<button class="choice ${cur.picked.includes(k) ? 'no' : ''}" data-k="${k}" ${cur.picked.includes(k) ? 'disabled' : ''}>
+    ${pics ? `<div class="art">${ART[q.cart[k]]}</div><span class="en">${esc(q.c[k])}</span>` : `<span class="k">${'①②③④'[n]}</span><span class="${/[가-힣]/.test(q.c[k]) ? '' : 'en'}">${esc(q.c[k])}</span>`}</button>`).join('')}</div>`;
+  $('#ans').querySelectorAll('.choice').forEach(btn => btn.onclick = () => answerPick(Number(btn.dataset.k), btn));
+}
+function answerPick(k, btn) {
+  if (cur.locked) return;
+  const q = Q[cur.i];
+  cur.tries++;
+  if (k === q.a) {
+    cur.locked = true; btn.classList.add('yes');
+    $('#ans').querySelectorAll('.choice').forEach(b => b.disabled = true);
+    return afterRight(q.c[k]);
+  }
+  cur.picked.push(k); btn.classList.add('no'); btn.disabled = true; SFX.wrong();
+  afterWrong(q.c[k], () => {
+    const right = $('#ans').querySelector(`[data-k="${q.a}"]`); if (right) right.classList.add('yes');
+    $('#ans').querySelectorAll('.choice').forEach(b => b.disabled = true);
+  });
+}
+
+function paintOrder() {
+  const q = Q[cur.i];
+  $('#ans').innerHTML = `<div class="slots">${q.lines.map((_, n) => { const k = cur.sel[n]; return `<div class="slot ${k != null ? 'filled' : ''}" data-n="${n}"><span class="n">${n + 1}</span>${k != null ? `<span class="en">${esc(q.lines[k])}</span>` : '<span class="muted" style="font-size:16px">아래에서 눌러 넣어요</span>'}</div>`; }).join('')}</div>
+    <div class="pool">${cur.order.filter(k => !cur.sel.includes(k)).map(k => `<button class="piece en" data-k="${k}">${esc(q.lines[k])}</button>`).join('')}</div>
+    <div class="center" style="margin-top:14px">${cur.sel.length === q.lines.length && !cur.locked ? `<button class="btn green" id="chk">다 했어요! 확인 ✔</button>` : ''}</div>`;
+  if (cur.locked) return;
+  $('#ans').querySelectorAll('.piece').forEach(p => p.onclick = () => { SFX.click(); cur.sel.push(Number(p.dataset.k)); paintOrder(); });
+  $('#ans').querySelectorAll('.slot.filled').forEach(s => s.onclick = () => { SFX.click(); cur.sel.splice(Number(s.dataset.n), 1); paintOrder(); });
+  if ($('#chk')) $('#chk').onclick = () => {
+    const q = Q[cur.i]; cur.tries++;
+    const ok = cur.sel.every((k, n) => k === n);
+    if (ok) { cur.locked = true; paintOrder(); $('#ans').querySelectorAll('.slot').forEach(s => s.style.borderColor = 'var(--ok)'); return afterRight(cur.sel.join('')); }
+    SFX.wrong();
+    $('#qcard').style.animation = 'shake .35s'; setTimeout(() => $('#qcard') && ($('#qcard').style.animation = ''), 400);
+    afterWrong(cur.sel.join(''), () => { cur.locked = true; cur.sel = q.lines.map((_, n) => n); paintOrder(); }, () => { cur.sel = []; paintOrder(); });
+  };
+}
+
+/* 정답일 때 */
+function afterRight(ans) {
+  SFX.correct();
+  const q = Q[cur.i];
+  if (cur.tries === 1) {
+    $('#fb').innerHTML = `<div class="feedback good fade"><b>정답이에요! 🎉</b><span>투호 화살을 받았어요.</span><div class="grow"></div><button class="btn" id="toThrow">화살 던지러 가기 🏹</button></div>`;
+    $('#toThrow').onclick = () => { SFX.click(); renderThrow(ans); };
+    $('#toThrow').focus();
+  } else {
+    $('#fb').innerHTML = `<div class="feedback good fade"><b>맞았어요! 👍</b><span>연습 화살 <b style="font-size:19px">+5점</b>이 우리 모둠에 들어갔어요.</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
+    commit(ans, true, 5, '');
+    $('#nx').onclick = () => { SFX.click(); next(); };
+  }
+}
+/* 틀렸을 때: 한 번은 다시 기회, 두 번째는 정답 보여 주기 */
+function afterWrong(ans, reveal, retry) {
+  const q = Q[cur.i];
+  if (cur.tries === 1) {
+    $('#fb').innerHTML = `<div class="feedback try fade"><b>아쉬워요! 한 번 더! 💪</b><span>다시 골라 보세요. 두 번째에 맞히면 +5점이에요.</span></div>`;
+    if (retry) setTimeout(retry, 700);
+    return;
+  }
+  reveal && reveal();
+  $('#fb').innerHTML = `<div class="feedback bad fade"><b>정답을 확인해요</b><span>${esc(q.why || '')}</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
+  commit(ans, false, 0, '');
+  $('#nx').onclick = () => { SFX.click(); next(); };
+}
+
+/* 기록 보내고 다음 문제로 */
+function commit(ans, ok, pts, holes) {
+  const i = cur.i;
+  if (cur.committed) return; cur.committed = true;
+  SendQueue.push({ action: 'answer', sid: me.sid, id: me.id, group: me.group, name: me.name, qi: i, qn: QN(i), ans: String(ans).slice(0, 80), ok, tries: cur.tries, pts, holes, eid: me.id + '-' + i, done: i === Q.length - 1 });
+  me.pts += pts; me.qi = i + 1; me.phase = 'next'; saveMe();
+  paintTop();
+}
+function next() {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  const prev = me.qi - 1;
+  if (me.qi >= Q.length) { me.newStamp = Q[prev].b; me.phase = 'map'; }
+  else if (Q[me.qi].b !== Q[prev].b) { me.newStamp = Q[prev].b; me.phase = 'map'; }
+  else me.phase = 'q';
+  saveMe(); route();
+}
+SendQueue.flush = (orig => async function () { await orig.call(SendQueue); if (!SendQueue.size()) poll(); })(SendQueue.flush);
+
+/* ---------- 7. 투호 던지기 ---------- */
+const tagX = i => HOLES[i].x + (i - 1) * 84, tagY = i => HOLES[i].y - (i === 1 ? 72 : 0);
+const HOLES = [{ x: 132, y: 146, nm: '왼쪽 귀' }, { x: 200, y: 112, nm: '가운데 입' }, { x: 268, y: 146, nm: '오른쪽 귀' }];
+function potSVG() {
+  return `<svg viewBox="0 0 400 400" id="pot">
+    <defs><radialGradient id="pg" cx=".38" cy=".38" r=".75"><stop offset="0" stop-color="#b8693a"/><stop offset=".6" stop-color="#8a4b2a"/><stop offset="1" stop-color="#5c2f18"/></radialGradient>
+    <radialGradient id="gl"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#ffd76a" stop-opacity="0"/></radialGradient></defs>
+    <ellipse cx="200" cy="362" rx="130" ry="16" fill="rgba(43,33,24,.18)"/>
+    <rect x="92" y="352" width="216" height="12" rx="6" fill="#c9a76a" stroke="#3b2414" stroke-width="3"/>
+    <path d="M166 112 L234 112 L228 152 C306 176 326 256 300 306 C284 340 252 352 200 352 C148 352 116 340 100 306 C74 256 94 176 172 152 Z" fill="url(#pg)" stroke="#3b2414" stroke-width="4"/>
+    <path d="M110 250 Q200 280 290 250" fill="none" stroke="#e7c27a" stroke-width="4" stroke-dasharray="10 8"/>
+    <path d="M120 290 Q200 316 280 290" fill="none" stroke="#e7c27a" stroke-width="3"/>
+    <path d="M128 214 Q200 194 272 214" fill="none" stroke="#c98a55" stroke-width="3"/>
+    <path d="M150 200 q-20 40 0 90" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="10" stroke-linecap="round"/>
+    <rect x="152" y="140" width="96" height="10" rx="3" fill="#6e3a1f" stroke="#3b2414" stroke-width="3"/>
+    <path d="M154 146 L146 146 M246 146 L254 146" stroke="#3b2414" stroke-width="8"/>
+    <g id="arrowsIn"></g>
+    ${HOLES.map((h, i) => `<g class="hole" data-h="${i}">
+      <circle class="glow" cx="${h.x}" cy="${h.y}" r="44" fill="url(#gl)"/>
+      ${i === 1 ? `<ellipse class="ring" cx="200" cy="112" rx="36" ry="11" fill="#2a170c" stroke="#3b2414" stroke-width="4"/><ellipse cx="200" cy="114" rx="26" ry="6" fill="#120904"/>`
+               : `<circle class="ring" cx="${h.x}" cy="${h.y}" r="20" fill="#2a170c" stroke="#3b2414" stroke-width="4"/><circle cx="${h.x}" cy="${h.y + 1}" r="11" fill="#120904"/>`}
+      <circle cx="${h.x}" cy="${h.y}" r="46" fill="transparent"/>
+      <g class="ptag" id="tag${i}" transform="translate(${tagX(i)} ${tagY(i)})">
+        <rect x="-34" y="-20" width="68" height="40" rx="12" fill="#fffdf7" stroke="#2b2118" stroke-width="3"/>
+        <text text-anchor="middle" y="9" font-size="26" font-family="Jua,sans-serif" fill="#2b2118">?</text></g>
+      <text x="${tagX(i)}" y="${tagY(i) - 30}" text-anchor="middle" font-size="17" font-family="Jua,sans-serif" fill="#2b2118">${h.nm}</text>
+    </g>`).join('')}
+    <g id="flying"></g>
+  </svg>`;
+}
+function arrowSVG(color) {
+  return `<g><line x1="0" y1="-4" x2="0" y2="-118" stroke="#5a3a1a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="0" y1="-4" x2="0" y2="-118" stroke="#a87a44" stroke-width="2" stroke-linecap="round"/>
+    <path d="M0 -104 l-11 -22 l11 8 l11 -8z" fill="${color}" stroke="#2b2118" stroke-width="2"/>
+    <path d="M0 -92 l-9 -16 l9 6 l9 -6z" fill="${color}" opacity=".75" stroke="#2b2118" stroke-width="1.5"/></g>`;
+}
+function renderThrow(ans) {
+  const vals = shuffle([10, 20, 30]);
+  if (Math.random() < 0.12) vals[vals.indexOf(30)] = 50;          // 가끔 황금 화살!
+  cur.vals = vals;
+  app.innerHTML = `<section class="card throwwrap fade">
+    <h2>🏹 투호 화살 던지기</h2>
+    <p style="margin:6px 0 0;font-size:19px">구멍 하나를 골라 눌러요. 어느 구멍이 높은 점수일까요?</p>
+    <p class="muted" style="margin:2px 0 0;font-size:15px">점수는 10 · 20 · 30점 중 하나! 아주 가끔 황금 화살 50점이 숨어 있어요.</p>
+    <div class="potstage" id="stage">${potSVG()}</div>
+    <div class="result" id="res"></div>
+    <div id="after"></div>
+  </section>`;
+  app.querySelectorAll('.hole').forEach(h => h.onclick = () => throwAt(Number(h.dataset.h), ans));
+}
+function throwAt(h, ans) {
+  if (cur.thrown) return; cur.thrown = true;
+  $('#stage').classList.add('lockhole');
+  const target = HOLES[h], fly = $('#flying'), color = TEAMC[me.group];
+  fly.innerHTML = arrowSVG(color);
+  const g = fly.firstChild;
+  const sx = 200 + (h - 1) * 40, sy = 470, cx = (sx + target.x) / 2, cy = -60;
+  const t0 = performance.now(), dur = 900;
+  SFX.whoosh();
+  (function step(now) {
+    const p = Math.min((now - t0) / dur, 1), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const x = (1 - e) * (1 - e) * sx + 2 * (1 - e) * e * cx + e * e * target.x;
+    const y = (1 - e) * (1 - e) * sy + 2 * (1 - e) * e * cy + e * e * target.y;
+    const rot = (1 - e) * (h - 1) * 50 + (h - 1) * 10, sc = 1.7 - .9 * e;
+    g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(1)}) scale(${sc.toFixed(3)})`);
+    if (p < 1) requestAnimationFrame(step); else landed(h, ans);
+  })(t0);
+}
+function landed(h, ans) {
+  SFX.plunk();
+  const vals = cur.vals, pts = vals[h], gold = pts === 50;
+  setTag(h, pts, true);
+  setTimeout(() => { [0, 1, 2].filter(k => k !== h).forEach(k => setTag(k, vals[k], false)); }, 700);
+  const res = $('#res');
+  res.className = 'result' + (gold ? ' gold' : '');
+  res.innerHTML = gold ? `✨ 황금 화살! <b>+${pts}점</b> ✨` : `쏙! ${HOLES[h].nm}에 들어갔어요. <b style="color:${TEAMC[me.group]}">+${pts}점</b>`;
+  res.style.animation = 'pop .45s both';
+  setTimeout(() => { gold ? SFX.gold() : SFX.coin(pts); if (gold || pts === 30) confetti(gold ? 90 : 40); }, 250);
+  commit(ans, true, pts, vals.join(','));
+  $('#after').innerHTML = `<p class="muted" style="margin:4px 0 10px">다른 구멍에는 몇 점이 숨어 있었는지 볼까요?</p><button class="btn" id="nx">다음 →</button>`;
+  $('#nx').onclick = () => { SFX.click(); next(); };
+  setTimeout(() => $('#after').scrollIntoView({ behavior: 'smooth', block: 'end' }), 300);
+}
+function setTag(k, v, mine) {
+  const t = $('#tag' + k); if (!t) return;
+  const fill = mine ? (v === 50 ? '#d79a1c' : TEAMC[me.group]) : '#ece0c6';
+  t.innerHTML = `<rect x="-38" y="-22" width="76" height="44" rx="12" fill="${fill}" stroke="#2b2118" stroke-width="3"/>
+    <text text-anchor="middle" y="9" font-size="24" font-family="Jua,sans-serif" fill="${mine ? '#fff' : '#6a5a48'}">${v}점</text>`;
+  t.style.transformBox = 'fill-box'; t.style.transformOrigin = 'center';
+  t.animate([{ transform: `translate(${tagX(k)}px, ${tagY(k)}px) scale(.4)` }, { transform: `translate(${tagX(k)}px, ${tagY(k)}px) scale(${mine ? 1.15 : 1})` }], { duration: 420, easing: 'cubic-bezier(.2,1.6,.4,1)', fill: 'forwards' });
+}
+function confetti(n) {
+  const box = document.createElement('div'); box.className = 'confetti';
+  const cols = ['#c8402f', '#2f62a8', '#d79a1c', '#2f8a5a', '#fff'];
+  for (let i = 0; i < n; i++) { const c = document.createElement('i'); c.style.left = Math.random() * 100 + 'vw'; c.style.background = cols[i % cols.length]; c.style.animationDuration = (1.8 + Math.random() * 1.8) + 's'; c.style.animationDelay = Math.random() * .6 + 's'; box.appendChild(c); }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 4500);
+}
+
+/* ---------- 8. 완주 ---------- */
+function renderDone() {
+  app.innerHTML = `<section class="fade">
+    <div class="card center"><div class="trophy">🎐</div>
+      <h2 style="font-size:34px;margin:8px 0">축제 완주!</h2>
+      <p style="font-size:20px">${esc(me.name)}, 여섯 부스를 모두 돌았어요.<br>내가 우리 모둠에 보탠 점수는 <b style="color:${TEAMC[me.group]};font-size:28px">${me.pts}점</b>!</p>
+      <div class="mapgrid" style="grid-template-columns:repeat(6,1fr);gap:8px">${BOOTHS.map(b => `<div class="center"><div class="art" style="width:54px;height:54px;margin:0 auto">${ART[b.art]}</div><div class="stamp" style="position:static;margin:6px auto 0;width:44px;height:44px;font-size:12px">참잘</div></div>`).join('')}</div>
+      <p class="muted" style="margin-top:14px">친구들이 다 끝날 때까지 기다려요. 짝과 함께 <b class="en">Do you know anything about ~?</b> 묻고 답하기를 해 볼까요?</p>
+    </div>
+    <div class="card" style="margin-top:18px" id="doneBoard">${boardHTML(true)}</div>
+  </section>`;
+}
+setInterval(() => { if (me && me.phase === 'done' && $('#doneBoard')) $('#doneBoard').innerHTML = boardHTML(true); }, 6000);
+
+/* ---------- 9. 시상식 ---------- */
+function awardHTML() {
+  const arr = SRV.names.map((n, i) => ({ i, n, p: SRV.totals[i] || 0 })).sort((a, b) => b.p - a.p);
+  const top = arr[0].p, winners = arr.filter(x => x.p === top && top > 0);
+  const mine = winners.some(x => x.i === me.group);
+  return `<div class="card center"><div class="trophy">🏆</div>
+    <div class="sub jua" style="color:var(--red);letter-spacing:2px;margin-top:6px">세계 전통 놀이 축제 · 시상식</div>
+    <h2 style="font-size:34px;margin:6px 0 4px">${winners.length ? winners.map(w => `${TEAMI[w.i]} ${esc(w.n)}`).join(', ') : '아직 점수가 없어요'}</h2>
+    <p style="font-size:20px;margin:0 0 14px">${winners.length ? `투호 챔피언! <b>${top}점</b>` : ''}</p>
+    ${mine ? `<p style="font-size:20px;color:${TEAMC[me.group]}"><b>우리 모둠이 우승했어요! 🎉</b></p>` : `<p class="muted">모두 정말 잘했어요. <span class="en">Good job, everyone!</span></p>`}
+    <div style="text-align:left;margin-top:10px">${boardHTML(false)}</div></div>`;
+}
+function showAward() { showOverlay(awardHTML()); SFX.fanfare(); confetti(120); }
+function updateAward() { if ($('#overlay').innerHTML) showOverlay(awardHTML()); }
+
+/* ---------- 시작 ---------- */
+me = loadMe();
+if (me && me.group == null) me = null;
+app.innerHTML = `<div class="card center fade" style="margin-top:40px"><div class="art" style="width:100px;height:100px;margin:0 auto">${ART.tuho}</div><h2>축제장으로 가는 중…</h2></div>`;
+poll(); startPolling(); SendQueue.flush();
+</script>
+</body>
+</html>
