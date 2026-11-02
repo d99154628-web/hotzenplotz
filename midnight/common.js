@@ -2,7 +2,7 @@
  *  자정의 골동품 가게 — 학생 화면·교사 화면 공통
  *  API_URL: Apps Script 웹 앱 주소(…/exec). 비워 두면 이 브라우저 안에서만 도는 "데모 모드".
  * ===================================================================== */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbysLVYxonfhz95hJJ3qEikqNQnjtzc44Y27KBcGy3uGd2Dm1kIKm6K13Y4fFfnI19qjBg/exec';
 const DEMO = !API_URL;
 const LS_VOICE = 'midnight-antique.voice';
 /* 데모 모드: 서버 코드(Code.gs)를 이 브라우저 안에서 그대로 돌림 (테스트용) */
