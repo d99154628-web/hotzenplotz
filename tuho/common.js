@@ -102,6 +102,12 @@ const ART = {
     <path d="M30 60 q2 -26 30 -26 q28 0 30 26 q-14 -10 -30 -8 q-16 -2 -30 8z" fill="#3b2414"/>
     <text x="88" y="34" font-size="36" font-family="Jua,sans-serif" fill="#c8402f">?</text><text x="20" y="30" font-size="22" font-family="Jua,sans-serif" fill="#2f62a8">?</text></svg>`
 };
+/* Flow로 만든 그림 파일로 바꿔 끼움 (파일이 없으면 위의 SVG 그림을 씀) */
+const PIC = k => `<img src="img/${k}.webp" alt="" decoding="async" draggable="false">`;
+Object.assign(ART, { tuho: PIC('item_tuho'), yakgwa: PIC('item_yakgwa'), nonla: PIC('item_nonla'), djembe: PIC('item_djembe'),
+  sari: PIC('item_sari'), boomerang: PIC('item_boomerang'), jegi: PIC('item_jegi'), umbrella: PIC('item_umbrella'),
+  hands: PIC('item_hands'), ques: PIC('item_question'), mascot: PIC('mascot'), happy: PIC('mascot_happy'), oops: PIC('mascot_oops'),
+  trophy: PIC('trophy'), lantern: PIC('lantern'), stamp: PIC('stamp') });
 const artBox = (k, cls) => `<div class="art ${cls || ''}" aria-hidden="true">${ART[k] || ''}</div>`;
 
 /* =====================================================================

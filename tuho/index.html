@@ -139,11 +139,11 @@ function route() {
 function renderStart() {
   $('#top').classList.add('hidden'); $('#teacherLink').classList.remove('hidden');
   const name = (me && me.name) || lsGet('name') || '';
-  app.innerHTML = `<section class="card poster fade">
-    <div class="lanterns">${'<div class="lantern"></div>'.repeat(7)}</div>
-    <div class="sub" style="margin-top:34px">민속 박물관 · 세계 전통 놀이 축제</div>
+  app.innerHTML = `<section class="card poster fade" style="--bg:url(img/bg_start.webp)">
+    <div class="lanterns"><div class="art lan">${ART.lantern}</div><div class="art lan l2">${ART.lantern}</div></div>
+    <div class="sub">민속 박물관 · 세계 전통 놀이 축제</div>
     <h1>투호 <span>챔피언십</span></h1>
-    <div class="art bigpot">${ART.tuho}</div>
+    <div class="art bigpot">${ART.mascot}</div>
     <p class="lead en" style="font-size:22px">Do you know anything about Tuho?</p>
     <div class="form" id="startForm">
       <input class="input" id="nm" maxlength="12" placeholder="내 이름" value="${esc(name)}" autocomplete="off">
@@ -187,7 +187,7 @@ async function join() {
 /* ---------- 2. 기다리기 ---------- */
 function renderWait() {
   app.innerHTML = `<section class="card center fade" style="margin-top:20px">
-    <div class="art" style="width:130px;height:130px;margin:0 auto;animation:bob 2.4s ease-in-out infinite">${ART.tuho}</div>
+    <div class="art" style="width:130px;height:130px;margin:0 auto;animation:bob 2.4s ease-in-out infinite">${ART.mascot}</div>
     <h2 style="font-size:32px;margin:12px 0 6px">입장 완료!</h2>
     <p style="font-size:20px"><b style="color:${TEAMC[me.group]}">${TEAMI[me.group]} ${esc(teamName(me.group))}</b> ${esc(me.name)}, 어서 와요.</p>
     <p class="muted">선생님이 "축제 시작!"을 누르면 바로 시작해요. 잠시만 기다려요.</p>
@@ -196,11 +196,11 @@ function renderWait() {
 
 /* ---------- 3. 이야기 ---------- */
 const STORY = [
-  { art: 'tuho', html: `<p>오늘은 민속 박물관에서 <b>세계 전통 놀이 축제</b>가 열리는 날이에요.</p><p>세계 여러 나라 친구들이 자기 나라의 물건과 놀이를 가지고 모였어요. 우리 모둠도 축제에 참가했어요!</p>` },
-  { art: 'ques', html: `<div class="bubble"><div class="who">축제 진행자</div><span class="en">Welcome to the festival!</span><br>축제장에는 부스가 <b>여섯 곳</b> 있어요. 부스 친구들이 이렇게 물어볼 거예요.</div>
+  { pic: 'story_1', html: `<p>오늘은 민속 박물관에서 <b>세계 전통 놀이 축제</b>가 열리는 날이에요.</p><p>세계 여러 나라 친구들이 자기 나라의 물건과 놀이를 가지고 모였어요. 우리 모둠도 축제에 참가했어요!</p>` },
+  { pic: 'story_2', html: `<div class="bubble"><div class="who">길잡이 항아리</div><span class="en">Welcome to the festival!</span><br>축제장에는 부스가 <b>여섯 곳</b> 있어요. 부스 친구들이 이렇게 물어볼 거예요.</div>
      <div class="bubble"><span class="en">Do you know anything about Tuho?</span> <button class="say" data-say="Do you know anything about Tuho?">🔊</button><br><span class="muted">투호에 대해 알고 있니?</span></div>
      <p>알면 <b class="en">Yes, I do.</b> 모르면 <b class="en">No, I don't.</b> 또는 <b class="en">I have no idea.</b></p>` },
-  { art: 'tuho', html: `<p>🏹 <b>처음에 정답</b>을 맞히면 <b>투호 화살</b>을 던질 수 있어요.</p>
+  { pic: 'story_3', html: `<p>🏹 <b>처음에 정답</b>을 맞히면 <b>투호 화살</b>을 던질 수 있어요.</p>
      <p>항아리에는 구멍이 세 개! <b>왼쪽 귀, 가운데 입, 오른쪽 귀</b>. 어느 구멍이 높은 점수인지는 던지기 전엔 아무도 몰라요. 운이 좋으면 <b style="color:#b8860b">황금 화살 50점</b>!</p>
      <p>두 번째에 맞히면 <b>연습 화살 +5점</b>. 틀려도 점수는 깎이지 않아요.</p>
      <p>모은 점수는 모두 <b>우리 모둠 점수</b>로! 가장 높은 모둠이 <b>투호 챔피언</b>이에요. 🏆</p>` }
@@ -208,7 +208,7 @@ const STORY = [
 function renderStory() {
   const k = me.story || 0, s = STORY[k];
   app.innerHTML = `<section class="card fade">
-    <div class="story"><div class="art">${ART[s.art]}</div><div>${s.html}</div></div>
+    <div class="story"><img class="scene" src="img/${s.pic}.webp" alt=""><div class="storytext">${s.html}</div></div>
     <div class="dots">${STORY.map((_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</div>
     <div class="row" style="justify-content:center;margin-top:16px">
       ${k > 0 ? `<button class="btn ghost" id="prev">← 앞으로</button>` : ''}
@@ -235,11 +235,11 @@ function renderMap() {
   const cb = curBooth(), fresh = me.newStamp;
   me.newStamp = null; saveMe();
   app.innerHTML = `<section class="fade">
-    <div class="card" style="padding:18px 22px"><h2 style="font-size:28px">🗺️ 축제 지도</h2>
+    <div class="card maphead" style="--bg:url(img/bg_map.webp)"><h2 style="font-size:28px">🗺️ 축제 지도</h2>
     <p class="muted" style="margin:4px 0 0">${cb >= BOOTHS.length ? '모든 부스를 다 돌았어요!' : `이번에 갈 곳은 <b style="color:var(--ink)">${BOOTHS[cb].place}</b>이에요. 부스를 다 돌면 도장을 받아요.`}</p></div>
     <div class="mapgrid">${BOOTHS.map((b, i) => `<div class="stall ${i < cb ? 'done' : i === cb ? 'now' : 'lock'}" style="--c:${b.color}">
-      <div class="art">${ART[b.art]}</div><div class="nm">${b.flag} ${b.place}</div><div class="fl en">${b.item}</div>
-      ${i < cb ? `<div class="stamp ${fresh === i ? 'new' : ''}">참 잘<br>했어요</div>` : ''}</div>`).join('')}</div>
+      <img class="thumb" src="img/booth_${b.id}.webp" alt=""><div class="nm">${b.flag} ${b.place}</div><div class="fl en">${b.item}</div>
+      ${i < cb ? `<div class="stamp ${fresh === i ? 'new' : ''}">${ART.stamp}<span>참 잘<br>했어요</span></div>` : ''}</div>`).join('')}</div>
     <div class="center" style="margin-top:20px"><button class="btn" id="go">${cb >= BOOTHS.length ? '결과 보러 가기 🏆' : `${BOOTHS[cb].place}(으)로 가기 →`}</button></div>
     <div class="card" style="margin-top:20px;padding:18px 22px">${boardHTML(true)}</div>
   </section>`;
@@ -252,6 +252,7 @@ function renderBooth() {
   const b = BOOTHS[curBooth()], n = Q.filter(x => x.b === curBooth()).length;
   app.innerHTML = `<section class="card fade">
     <span class="tag" style="--c:${b.color}">부스 ${curBooth() + 1} / ${BOOTHS.length}</span>
+    <img class="scene booth" src="img/booth_${b.id}.webp" alt="">
     <div class="boothhead" style="margin-top:12px"><div class="art">${ART[b.art]}</div>
       <div><h2 style="font-size:32px">${b.flag} ${b.place}</h2>
       <p style="font-size:19px;margin:6px 0">${b.helloKr}</p>
@@ -329,11 +330,11 @@ function afterRight(ans) {
   SFX.correct();
   const q = Q[cur.i];
   if (cur.tries === 1) {
-    $('#fb').innerHTML = `<div class="feedback good fade"><b>정답이에요! 🎉</b><span>투호 화살을 받았어요.</span><div class="grow"></div><button class="btn" id="toThrow">화살 던지러 가기 🏹</button></div>`;
+    $('#fb').innerHTML = `<div class="feedback good fade"><div class="art face">${ART.happy}</div><b>정답이에요! 🎉</b><span>투호 화살을 받았어요.</span><div class="grow"></div><button class="btn" id="toThrow">화살 던지러 가기 🏹</button></div>`;
     $('#toThrow').onclick = () => { SFX.click(); renderThrow(ans); };
     $('#toThrow').focus();
   } else {
-    $('#fb').innerHTML = `<div class="feedback good fade"><b>맞았어요! 👍</b><span>연습 화살 <b style="font-size:19px">+5점</b>이 우리 모둠에 들어갔어요.</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
+    $('#fb').innerHTML = `<div class="feedback good fade"><div class="art face">${ART.happy}</div><b>맞았어요! 👍</b><span>연습 화살 <b style="font-size:19px">+5점</b>이 우리 모둠에 들어갔어요.</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
     commit(ans, true, 5, '');
     $('#nx').onclick = () => { SFX.click(); next(); };
   }
@@ -342,12 +343,12 @@ function afterRight(ans) {
 function afterWrong(ans, reveal, retry) {
   const q = Q[cur.i];
   if (cur.tries === 1) {
-    $('#fb').innerHTML = `<div class="feedback try fade"><b>아쉬워요! 한 번 더! 💪</b><span>다시 골라 보세요. 두 번째에 맞히면 +5점이에요.</span></div>`;
+    $('#fb').innerHTML = `<div class="feedback try fade"><div class="art face">${ART.oops}</div><b>아쉬워요! 한 번 더! 💪</b><span>다시 골라 보세요. 두 번째에 맞히면 +5점이에요.</span></div>`;
     if (retry) setTimeout(retry, 700);
     return;
   }
   reveal && reveal();
-  $('#fb').innerHTML = `<div class="feedback bad fade"><b>정답을 확인해요</b><span>${esc(q.why || '')}</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
+  $('#fb').innerHTML = `<div class="feedback bad fade"><div class="art face">${ART.oops}</div><b>정답을 확인해요</b><span>${esc(q.why || '')}</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
   commit(ans, false, 0, '');
   $('#nx').onclick = () => { SFX.click(); next(); };
 }
@@ -371,40 +372,29 @@ function next() {
 SendQueue.flush = (orig => async function () { await orig.call(SendQueue); if (!SendQueue.size()) poll(); })(SendQueue.flush);
 
 /* ---------- 7. 투호 던지기 ---------- */
-const tagX = i => HOLES[i].x + (i - 1) * 84, tagY = i => HOLES[i].y - (i === 1 ? 72 : 0);
-const HOLES = [{ x: 132, y: 146, nm: '왼쪽 귀' }, { x: 200, y: 112, nm: '가운데 입' }, { x: 268, y: 146, nm: '오른쪽 귀' }];
+const tagX = i => HOLES[i].x, tagY = i => HOLES[i].y - (i === 1 ? 72 : 66);
+const HOLES = [{ x: 69, y: 162, nm: '왼쪽 귀' }, { x: 200, y: 106, nm: '가운데 입' }, { x: 329, y: 162, nm: '오른쪽 귀' }];
 function potSVG() {
   return `<svg viewBox="0 0 400 400" id="pot">
-    <defs><radialGradient id="pg" cx=".38" cy=".38" r=".75"><stop offset="0" stop-color="#b8693a"/><stop offset=".6" stop-color="#8a4b2a"/><stop offset="1" stop-color="#5c2f18"/></radialGradient>
-    <radialGradient id="gl"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#ffd76a" stop-opacity="0"/></radialGradient></defs>
-    <ellipse cx="200" cy="362" rx="130" ry="16" fill="rgba(43,33,24,.18)"/>
-    <rect x="92" y="352" width="216" height="12" rx="6" fill="#c9a76a" stroke="#3b2414" stroke-width="3"/>
-    <path d="M166 112 L234 112 L228 152 C306 176 326 256 300 306 C284 340 252 352 200 352 C148 352 116 340 100 306 C74 256 94 176 172 152 Z" fill="url(#pg)" stroke="#3b2414" stroke-width="4"/>
-    <path d="M110 250 Q200 280 290 250" fill="none" stroke="#e7c27a" stroke-width="4" stroke-dasharray="10 8"/>
-    <path d="M120 290 Q200 316 280 290" fill="none" stroke="#e7c27a" stroke-width="3"/>
-    <path d="M128 214 Q200 194 272 214" fill="none" stroke="#c98a55" stroke-width="3"/>
-    <path d="M150 200 q-20 40 0 90" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="10" stroke-linecap="round"/>
-    <rect x="152" y="140" width="96" height="10" rx="3" fill="#6e3a1f" stroke="#3b2414" stroke-width="3"/>
-    <path d="M154 146 L146 146 M246 146 L254 146" stroke="#3b2414" stroke-width="8"/>
-    <g id="arrowsIn"></g>
+    <defs><radialGradient id="gl"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#ffd76a" stop-opacity="0"/></radialGradient></defs>
+    <ellipse cx="200" cy="378" rx="120" ry="12" fill="rgba(43,33,24,.16)"/>
+    <image href="img/pot_big.webp" x="50" y="70" width="300" height="307"/>
     ${HOLES.map((h, i) => `<g class="hole" data-h="${i}">
-      <circle class="glow" cx="${h.x}" cy="${h.y}" r="44" fill="url(#gl)"/>
-      ${i === 1 ? `<ellipse class="ring" cx="200" cy="112" rx="36" ry="11" fill="#2a170c" stroke="#3b2414" stroke-width="4"/><ellipse cx="200" cy="114" rx="26" ry="6" fill="#120904"/>`
-               : `<circle class="ring" cx="${h.x}" cy="${h.y}" r="20" fill="#2a170c" stroke="#3b2414" stroke-width="4"/><circle cx="${h.x}" cy="${h.y + 1}" r="11" fill="#120904"/>`}
-      <circle cx="${h.x}" cy="${h.y}" r="46" fill="transparent"/>
+      <circle class="glow" cx="${h.x}" cy="${h.y}" r="${i === 1 ? 52 : 40}" fill="url(#gl)"/>
+      <circle class="ring" cx="${h.x}" cy="${h.y}" r="${i === 1 ? 40 : 26}" fill="transparent" stroke="transparent" stroke-width="4"/>
+      <circle cx="${h.x}" cy="${h.y}" r="48" fill="transparent"/>
       <g class="ptag" id="tag${i}" transform="translate(${tagX(i)} ${tagY(i)})">
         <rect x="-34" y="-20" width="68" height="40" rx="12" fill="#fffdf7" stroke="#2b2118" stroke-width="3"/>
         <text text-anchor="middle" y="9" font-size="26" font-family="Jua,sans-serif" fill="#2b2118">?</text></g>
-      <text x="${tagX(i)}" y="${tagY(i) - 30}" text-anchor="middle" font-size="17" font-family="Jua,sans-serif" fill="#2b2118">${h.nm}</text>
+      <text x="${tagX(i)}" y="${tagY(i) - 28}" text-anchor="middle" font-size="16" font-family="Jua,sans-serif" fill="#2b2118">${h.nm}</text>
     </g>`).join('')}
     <g id="flying"></g>
   </svg>`;
 }
-function arrowSVG(color) {
-  return `<g><line x1="0" y1="-4" x2="0" y2="-118" stroke="#5a3a1a" stroke-width="5" stroke-linecap="round"/>
-    <line x1="0" y1="-4" x2="0" y2="-118" stroke="#a87a44" stroke-width="2" stroke-linecap="round"/>
-    <path d="M0 -104 l-11 -22 l11 8 l11 -8z" fill="${color}" stroke="#2b2118" stroke-width="2"/>
-    <path d="M0 -92 l-9 -16 l9 6 l9 -6z" fill="${color}" opacity=".75" stroke="#2b2118" stroke-width="1.5"/></g>`;
+function arrowSVG(color, gold) {
+  // 화살 끝이 (0,0)에 오도록 그림을 위로 세움
+  return gold ? `<g><image href="img/arrow_gold.webp" x="-24" y="-200" width="48" height="206"/></g>`
+              : `<g><image href="img/arrow.webp" x="-10" y="-200" width="20" height="206"/></g>`;
 }
 function renderThrow(ans) {
   const vals = shuffle([10, 20, 30]);
@@ -424,7 +414,7 @@ function throwAt(h, ans) {
   if (cur.thrown) return; cur.thrown = true;
   $('#stage').classList.add('lockhole');
   const target = HOLES[h], fly = $('#flying'), color = TEAMC[me.group];
-  fly.innerHTML = arrowSVG(color);
+  fly.innerHTML = arrowSVG(color, cur.vals[h] === 50);
   const g = fly.firstChild;
   const sx = 200 + (h - 1) * 40, sy = 470, cx = (sx + target.x) / 2, cy = -60;
   const t0 = performance.now(), dur = 900;
@@ -433,7 +423,7 @@ function throwAt(h, ans) {
     const p = Math.min((now - t0) / dur, 1), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
     const x = (1 - e) * (1 - e) * sx + 2 * (1 - e) * e * cx + e * e * target.x;
     const y = (1 - e) * (1 - e) * sy + 2 * (1 - e) * e * cy + e * e * target.y;
-    const rot = (1 - e) * (h - 1) * 50 + (h - 1) * 10, sc = 1.7 - .9 * e;
+    const rot = (1 - e) * (h - 1) * 50 + (h - 1) * 12, sc = 1.5 - .5 * e;
     g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(1)}) scale(${sc.toFixed(3)})`);
     if (p < 1) requestAnimationFrame(step); else landed(h, ans);
   })(t0);
@@ -471,10 +461,10 @@ function confetti(n) {
 /* ---------- 8. 완주 ---------- */
 function renderDone() {
   app.innerHTML = `<section class="fade">
-    <div class="card center"><div class="trophy">🎐</div>
+    <div class="card center"><div class="art trophy" style="width:120px;height:120px;margin:0 auto">${ART.happy}</div>
       <h2 style="font-size:34px;margin:8px 0">축제 완주!</h2>
       <p style="font-size:20px">${esc(me.name)}, 여섯 부스를 모두 돌았어요.<br>내가 우리 모둠에 보탠 점수는 <b style="color:${TEAMC[me.group]};font-size:28px">${me.pts}점</b>!</p>
-      <div class="mapgrid" style="grid-template-columns:repeat(6,1fr);gap:8px">${BOOTHS.map(b => `<div class="center"><div class="art" style="width:54px;height:54px;margin:0 auto">${ART[b.art]}</div><div class="stamp" style="position:static;margin:6px auto 0;width:44px;height:44px;font-size:12px">참잘</div></div>`).join('')}</div>
+      <div class="mapgrid" style="grid-template-columns:repeat(6,1fr);gap:8px">${BOOTHS.map(b => `<div class="center"><div class="art" style="width:54px;height:54px;margin:0 auto">${ART[b.art]}</div><div class="art" style="width:40px;height:40px;margin:4px auto 0">${ART.stamp}</div></div>`).join('')}</div>
       <p class="muted" style="margin-top:14px">친구들이 다 끝날 때까지 기다려요. 짝과 함께 <b class="en">Do you know anything about ~?</b> 묻고 답하기를 해 볼까요?</p>
     </div>
     <div class="card" style="margin-top:18px" id="doneBoard">${boardHTML(true)}</div>
@@ -487,7 +477,7 @@ function awardHTML() {
   const arr = SRV.names.map((n, i) => ({ i, n, p: SRV.totals[i] || 0 })).sort((a, b) => b.p - a.p);
   const top = arr[0].p, winners = arr.filter(x => x.p === top && top > 0);
   const mine = winners.some(x => x.i === me.group);
-  return `<div class="card center"><div class="trophy">🏆</div>
+  return `<div class="card center awardcard" style="--bg:url(img/bg_award.webp)"><div class="art trophy" style="width:130px;height:130px;margin:0 auto">${ART.trophy}</div>
     <div class="sub jua" style="color:var(--red);letter-spacing:2px;margin-top:6px">세계 전통 놀이 축제 · 시상식</div>
     <h2 style="font-size:34px;margin:6px 0 4px">${winners.length ? winners.map(w => `${TEAMI[w.i]} ${esc(w.n)}`).join(', ') : '아직 점수가 없어요'}</h2>
     <p style="font-size:20px;margin:0 0 14px">${winners.length ? `투호 챔피언! <b>${top}점</b>` : ''}</p>
@@ -500,7 +490,7 @@ function updateAward() { if ($('#overlay').innerHTML) showOverlay(awardHTML()); 
 /* ---------- 시작 ---------- */
 me = loadMe();
 if (me && me.group == null) me = null;
-app.innerHTML = `<div class="card center fade" style="margin-top:40px"><div class="art" style="width:100px;height:100px;margin:0 auto">${ART.tuho}</div><h2>축제장으로 가는 중…</h2></div>`;
+app.innerHTML = `<div class="card center fade" style="margin-top:40px"><div class="art" style="width:110px;height:110px;margin:0 auto">${ART.mascot}</div><h2>축제장으로 가는 중…</h2></div>`;
 poll(); startPolling(); SendQueue.flush();
 </script>
 </body>
