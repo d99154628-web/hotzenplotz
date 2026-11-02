@@ -129,7 +129,7 @@ const BOOTHS = [
     hello: ['This is a sari.', 'Do you know anything about saris?'],
     helloKr: '나리가 알록달록한 인도의 옷 사리를 보여 주고 있어요.' },
   { id: 'boomerang', flag: '🇦🇺', place: '호주 부스', host: 'Jacob', item: 'boomerangs', art: 'boomerang', color: '#d0662b',
-    hello: ['Do you know anything about boomerangs?', "They're Australian toys. Throw it and it comes back!"],
+    hello: ['Do you know anything about boomerangs?', "They're Australian toys. Throw one and it comes back!"],
     helloKr: '마지막 부스! Jacob이 던지면 다시 돌아오는 호주의 장난감, 부메랑을 들고 있어요.' }
 ];
 
