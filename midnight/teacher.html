@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>자정의 골동품 가게 · 교사용</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Song+Myung&family=Gowun+Batang:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap">
+<style>:root{color-scheme:dark}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="group.css">
+</head>
+<body class="tpage">
+<div class="wrap" id="app"><p class="loading">불러오는 중이에요…</p></div>
+<script src="common.js"></script>
+<script>
+/* =====================================================================
+ *  교사용 화면 — 모둠 수 정하기, 가게 문 열고 닫기, 모둠별 상황 살펴보기, 문제 세트 관리
+ * ===================================================================== */
+const app = document.getElementById('app');
+const LS_PW = 'midnight-group.pw';
+let PW = (() => { try { return sessionStorage.getItem(LS_PW) || ''; } catch (e) { return ''; } })();
+let D = null;            // 대시보드 자료
+let view = 'login';      // login · main · big · sets · edit
+let prev = {};           // 이전 모둠 점수 (애니메이션)
+let lastOk = 0, saving = '', confirmReset = false, openGroup = null;
+let SETS = [], ACTIVE_ID = 'default', T = null;
+
+async function call(p) {
+  const r = await api(Object.assign({ pw: PW }, p), 3);
+  if (r && r.error === 'pw') { view = 'login'; PW = ''; render(); throw new Error('pw'); }
+  return r;
+}
+async function refresh() {
+  if (view === 'login' || view === 'edit') return;
+  try {
+    const r = await call({ action: 'dash' });
+    if (r && r.ok) { take(r); lastOk = Date.now(); paint(); }
+  } catch (e) { const s = document.getElementById('sync'); if (s) { s.textContent = '연결이 잠깐 끊겼어요'; s.classList.add('err'); } }
+}
+function take(r) {
+  const old = D; D = r;
+  D._d = {};
+  if (old && old.sid === r.sid) r.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) D._d[i] = d; });
+}
+
+/* ---------- 계산 ---------- */
+function setSize() {
+  if (D.setId === 'default') return DEFAULT_SET.questions.length;
+  const s = SETS.find(x => x.id === D.setId); return s ? s.questions.length : (D.limit || 20);
+}
+const lim = () => D.limit ? Math.min(D.limit, setSize()) : setSize();
+function groupStats(g) {
+  const m = D.students.filter(s => s.g === g), L = lim();
+  const q = m.reduce((a, s) => a + Math.min(s.qi, L), 0), r = m.reduce((a, s) => a + s.right, 0);
+  return { m, prog: m.length ? q / (m.length * L) : 0, acc: q ? r / q : null, done: m.filter(s => s.done || s.qi >= L).length };
+}
+function ago(t) { if (!t) return ''; const s = Math.round((D.now - t) / 1000); return s < 60 ? `${Math.max(s, 0)}초 전` : `${Math.floor(s / 60)}분 전`; }
+
+/* ---------- 화면 조각 ---------- */
+function loginView() {
+  return `<section class="tpanel login"><div class="brand">${clockSVG(0)}<div><small>교사용 화면</small><h1>자정의 골동품 가게</h1></div></div>
+   <label class="fld" for="pw">비밀번호<input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호 4자리"></label>
+   <p class="tmsg err" id="pwmsg" role="status">${esc(saving)}</p>
+   <div><button class="btn" data-act="login">들어가기</button></div></section>`;
+}
+function topBar() {
+  const all = D.students.length, L = lim();
+  const prog = all ? D.students.reduce((a, s) => a + Math.min(s.qi, L), 0) / (all * L) : 0;
+  return `<header class="top"><div class="brand">${clockSVG(D.open === 'closed' ? 1 : prog)}<div><small>교사용 화면 · ${esc(D.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
+   <div class="toolbar"><span class="sync" id="sync" role="status">방금 갱신</span>
+    <button class="btn ghost" data-act="big">점수판 크게 보기</button>
+    <a class="btn ghost" href="./" target="_blank" rel="noopener">학생 화면 열기 ↗</a></div></header>`;
+}
+function controls() {
+  const n = D.n;
+  const states = [['wait', '준비 중', '학생들이 모둠을 고르고 기다려요'], ['open', '가게 문 열기', '각자 문제를 풀기 시작해요'], ['closed', '자정 (끝)', '풀이를 멈추고 순위를 보여 줘요']];
+  const lims = [5, 10, 15, 20, 25, 30, 40].filter(v => v < setSize()).concat([0]);
+  return `<section class="tpanel ctl">
+   <div class="thead"><h2>가게 운영</h2><span class="tmsg ${saving.startsWith('!') ? 'err' : ''}" role="status">${esc(saving.replace(/^!/, ''))}</span></div>
+   <div class="ctlrow"><span class="lab">가게 상태</span><div class="states" role="group" aria-label="가게 상태">${states.map(([k, t, d]) => `<button data-act="open" data-v="${k}" aria-pressed="${D.open === k}" class="st-${k}"><b>${t}</b><small>${d}</small></button>`).join('')}</div></div>
+   <div class="ctlgrid">
+    <div class="ctlrow"><span class="lab">모둠 수</span><div class="count-row" role="group" aria-label="모둠 수">${[2, 3, 4, 5, 6, 7, 8].map(k => `<button data-act="n" data-n="${k}" aria-pressed="${n === k}">${k}</button>`).join('')}</div>
+     ${D.students.some(s => s.g >= n) ? `<p class="tnote warn">줄인 모둠에 들어가 있던 학생은 모둠을 다시 골라야 해요.</p>` : ''}</div>
+    <div class="ctlrow"><span class="lab">한 사람이 푸는 질문 수</span>
+     <select class="sel big" data-act-change="limit" aria-label="한 사람이 푸는 질문 수">${lims.map(v => `<option value="${v}" ${(D.limit || 0) === v || (v === 0 && D.limit >= setSize()) ? 'selected' : ''}>${v ? v + '문제' : '전체 ' + setSize() + '문제'}</option>`).join('')}</select>
+     <small class="hint">문제는 학생마다 순서가 다르게 무작위로 나와요.</small></div>
+   </div>
+   <div class="ctlrow"><span class="lab">모둠 이름</span><div class="names">${Array.from({ length: n }, (_, i) => `<label for="gn${i}"><span><span style="color:${TEAMC[i]}">◆</span> ${i + 1}번 모둠</span><input id="gn${i}" data-gn="${i}" value="${esc(D.allNames[i])}" maxlength="12"></label>`).join('')}</div>
+    <div><button class="btn ghost small" data-act="names">모둠 이름 저장</button></div></div>
+   <div class="ctlrow"><span class="lab">오늘의 문제</span><div class="setpick"><span><b>${esc(D.setTitle || DEFAULT_SET.title)}</b> · ${setSize()}문제</span><button class="btn ghost small" data-act="t-open">문제 세트 바꾸기 · 만들기</button></div></div>
+   <div class="ctlrow resetrow"><button class="btn ghost danger" data-act="reset">${confirmReset ? '한 번 더 누르면 모든 점수와 학생 기록을 지우고 새로 시작해요' : '새 수업 시작 (점수·학생 초기화)'}</button>
+    <small class="hint">다른 반 수업을 시작할 때 눌러요. 구글 시트의 「기록」 탭에는 지난 기록이 남아 있어요.</small></div>
+  </section>`;
+}
+function groupCard(g) {
+  const st = groupStats(g), L = lim(), sc = D.totals[g], d = D._d[g] || 0;
+  const rank = D.totals.slice().sort((a, b) => b - a).indexOf(sc) + 1;
+  const rows = st.m.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true })).map(s => {
+    const qi = Math.min(s.qi, L), done = s.done || s.qi >= L, idle = !done && D.open === 'open' && D.now - s.updated > 120000;
+    const acc = qi ? Math.round(s.right / qi * 100) : null;
+    return `<li class="${done ? 'done' : idle ? 'idle' : ''}"><span class="sn" title="${esc(s.name)}">${esc(s.name)}</span>
+      <span class="bar" aria-label="${qi}/${L}문제"><i style="width:${qi / L * 100}%"></i></span><span class="qn">${qi}/${L}</span>
+      <span class="acc">${acc == null ? '–' : acc + '%'}</span><span class="pt ${s.pts < 0 ? 'neg' : ''}">${s.pts > 0 ? '+' : ''}${s.pts}</span>
+      <span class="stt">${done ? '완료' : idle ? `멈춤 ${ago(s.updated)}` : D.open === 'open' ? '풀이 중' : '대기'}</span></li>`;
+  }).join('');
+  return `<article class="gcard" style="--gc:${TEAMC[g]}">
+   <div class="ghead"><span class="gname"><span class="gdot"></span>${esc(D.names[g])}</span><span class="grank">${sc > 0 ? rank + '위' : ''}</span></div>
+   <div class="gscore"><span class="num" data-sc data-from="${sc - d}" data-to="${sc}">${sc - d}</span><small>점</small>${D.shields[g] ? `<span class="sh" title="보호 부적">🧿${D.shields[g] > 1 ? '×' + D.shields[g] : ''}</span>` : ''}
+    ${d ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${d}</span>` : ''}
+    <span class="adj"><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="-10" aria-label="${esc(D.names[g])} 10점 빼기">−10</button><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="10" aria-label="${esc(D.names[g])} 10점 더하기">+10</button></span></div>
+   <div class="gstats"><span>참가 <b>${st.m.length}</b>명</span><span>진행 <b>${Math.round(st.prog * 100)}%</b></span><span>정답률 <b>${st.acc == null ? '–' : Math.round(st.acc * 100) + '%'}</b></span><span>완료 <b>${st.done}</b>명</span></div>
+   <div class="gprog"><i style="width:${st.prog * 100}%"></i></div>
+   ${st.m.length ? `<ul class="members"><li class="mh"><span class="sn">이름</span><span class="bar">진행</span><span class="qn"></span><span class="acc">정답률</span><span class="pt">점수</span><span class="stt">상태</span></li>${rows}</ul>` : `<p class="empty">아직 들어온 학생이 없어요.</p>`}
+  </article>`;
+}
+function feedList(n) {
+  const f = (D.feed || []).slice(0, n);
+  if (!f.length) return `<p class="empty">아직 열린 상자가 없어요.</p>`;
+  return `<ol class="feed">${f.map(x => `<li><span class="ft">${new Date(x.t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span><span><span style="color:${TEAMC[x.g] || 'var(--brass)'}">◆</span> <b>${esc(x.who)}</b> ${esc(x.msg)}</span></li>`).join('')}</ol>`;
+}
+function monitor() {
+  const all = D.students.length, L = lim();
+  const done = D.students.filter(s => s.done || s.qi >= L).length;
+  const lost = D.students.filter(s => s.g >= D.n);
+  return `<section class="mon">
+   <div class="monhead"><h2>모둠별 상황</h2><span>들어온 학생 <b>${all}</b>명 · 다 푼 학생 <b>${done}</b>명 · 한 사람당 <b>${L}</b>문제</span></div>
+   <div class="gcards">${D.totals.map((_, g) => groupCard(g)).join('')}</div>
+   ${lost.length ? `<p class="tnote warn">모둠을 다시 골라야 하는 학생: ${lost.map(s => esc(s.name)).join(', ')}</p>` : ''}
+   <div class="sidecols">
+    <section class="tpanel"><h3 class="tsub">가게 소식 <small>학생들이 연 상자 (최근 순)</small></h3>${feedList(25)}</section>
+    <section class="tpanel"><h3 class="tsub">많이 틀린 질문 <small>틀린 비율이 높은 순</small></h3>${D.hard && D.hard.length ? `<ol class="hard">${D.hard.map(h => `<li><span>${esc(h.q)}</span><b>${h.wrong}/${h.n}명 오답</b></li>`).join('')}</ol>` : '<p class="empty">아직 틀린 질문이 없어요.</p>'}</section>
+   </div></section>`;
+}
+function bigView() {
+  const r = D.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = Math.max(r[0].s, 1);
+  return `<section class="bigboard"><div class="bbhead">${clockSVG(D.open === 'closed' ? 1 : 0.5, 110)}<div><h1>${D.open === 'closed' ? '자정이 되었어요!' : '자정의 골동품 가게'}</h1><p>${D.open === 'closed' ? '오늘의 주인공 모둠은?' : D.open === 'open' ? '시계가 자정을 치기 전에 상자를 열어요' : '곧 가게 문이 열려요'}</p></div>
+   <button class="btn ghost" data-act="back">← 교사용 화면</button></div>
+   <ol class="bars">${r.map((x, k) => `<li style="--gc:${TEAMC[x.i]}" class="${k === 0 && x.s > 0 ? 'first' : ''}"><span class="bn">${k + 1}. ${esc(D.names[x.i])}${D.shields[x.i] ? ' 🧿' : ''}</span><span class="bt"><i style="width:${Math.max(x.s / top * 100, 2)}%"></i></span><span class="bs" data-sc data-from="${x.s - (D._d[x.i] || 0)}" data-to="${x.s}">${x.s - (D._d[x.i] || 0)}</span></li>`).join('')}</ol>
+   <div class="bbfeed">${feedList(4)}</div></section>`;
+}
+
+/* ---------- 그리기 ---------- */
+function render() {
+  if (view === 'login') { app.innerHTML = loginView(); setTimeout(() => { const p = document.getElementById('pw'); p && p.focus(); }, 30); return; }
+  if (!D) { app.innerHTML = '<p class="loading">불러오는 중이에요…</p>'; return; }
+  if (view === 'big') { app.innerHTML = bigView(); countUp(app); return; }
+  if (view === 'sets' || view === 'edit') { app.innerHTML = topBar() + setsView(); return; }
+  app.innerHTML = topBar() + `<div id="ctl">${controls()}</div><div id="mon">${monitor()}</div>`;
+  countUp(app);
+}
+/* 주기적으로 바뀌는 부분만 다시 그림 (입력 중인 칸은 그대로 둠) */
+function paint() {
+  if (view === 'big') { app.innerHTML = bigView(); countUp(app); return; }
+  if (view !== 'main') return;
+  const mon = document.getElementById('mon'), ctl = document.getElementById('ctl');
+  if (!mon) return render();
+  mon.innerHTML = monitor(); countUp(mon);
+  const typing = ctl && ctl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
+  if (!typing && ctl) ctl.innerHTML = controls();
+  const s = document.getElementById('sync'); if (s) { s.textContent = '방금 갱신'; s.classList.remove('err'); }
+  const brand = app.querySelector('header .clock'); if (brand) { const L = lim(), all = D.students.length; brand.outerHTML = clockSVG(D.open === 'closed' ? 1 : all ? D.students.reduce((a, x) => a + Math.min(x.qi, L), 0) / (all * L) : 0); }
+}
+
+async function config(p, okMsg) {
+  saving = '저장하는 중…'; paintCtl();
+  try { const r = await call(Object.assign({ action: 'config' }, p)); if (r && r.ok) { take(r); saving = okMsg; SFX.saved(); } else saving = '!저장하지 못했어요. 다시 눌러 주세요.'; }
+  catch (e) { if (view !== 'login') saving = '!인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+  if (view === 'main') render();
+}
+function paintCtl() { const c = document.getElementById('ctl'); if (c) c.innerHTML = controls(); }
+
+/* ---------- 문제 세트 관리 (서버에 저장 → 모든 학생에게 적용) ---------- */
+async function loadSets() { try { const r = await call({ action: 'sets' }); if (r && r.ok) { SETS = r.sets.filter(x => Array.isArray(x.questions) && x.questions.length).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); ACTIVE_ID = r.active; } } catch (e) {} }
+const allSets = () => [Object.assign({ builtin: true }, DEFAULT_SET), ...SETS];
+const clone = o => JSON.parse(JSON.stringify(o));
+function fmtDate(t) { const d = new Date(t); return `${d.getMonth() + 1}월 ${d.getDate()}일`; }
+const newQ = () => ({ t: '', p: null, q: '', en: '', c: ['', '', '', ''], a: 0 });
+function toDraft(s) { const d = clone(s); d.questions = d.questions.map(Q => ({ t: Q.t || '', p: Q.p || null, q: Q.q || '', en: Q.en || '', c: [0, 1, 2, 3].map(j => Q.c[j] || ''), a: Q.a || 0 })); d.passages = (d.passages || []).map(p => ({ id: p.id, title: p.title || '', lines: p.lines || [] })); delete d.builtin; return d; }
+
+function setsView() {
+  if (view === 'edit') return editor();
+  return `<section class="tpanel"><div class="thead"><h2>문제 세트</h2><button class="btn ghost small" data-act="t-back">← 교사용 화면</button></div>
+  <p class="tnote">여기서 고른 세트가 모든 학생 화면에 나와요. 이미 문제를 풀고 있는 학생은 지금 풀던 문제를 끝까지 풀어요.</p>
+  ${T && T.msg ? `<p class="tmsg ${T.err ? 'err' : ''}">${esc(T.msg)}</p>` : ''}
+  <div class="setlist">${allSets().map(s => `<div class="setcard ${s.id === ACTIVE_ID ? 'cur' : ''}">
+    <div class="sinfo"><b>${esc(s.title || '이름 없는 세트')}</b><span>${s.questions.length}문제 · 지문 ${(s.passages || []).length}개${s.builtin ? ' · 기본 세트' : s.updatedAt ? ' · ' + fmtDate(s.updatedAt) + ' 저장' : ''}</span></div>
+    <div class="sbtns">${s.id === ACTIVE_ID ? `<span class="using">지금 사용 중</span>` : `<button class="btn small" data-act="t-use" data-id="${s.id}">이 세트 쓰기</button>`}
+     ${!s.builtin ? `<button class="btn ghost small" data-act="t-edit" data-id="${s.id}">편집</button>` : ''}
+     <button class="btn ghost small" data-act="t-copy" data-id="${s.id}">복사해서 새로 만들기</button>
+     ${!s.builtin ? `<button class="btn ghost small danger" data-act="t-del" data-id="${s.id}">${T && T.confirmDel === s.id ? '한 번 더 누르면 삭제돼요' : '삭제'}</button>` : ''}
+    </div></div>`).join('')}</div>
+  <div><button class="btn" data-act="t-new">+ 새 문제 세트 만들기</button></div></section>`;
+}
+function editor() {
+  const d = T.draft;
+  const popts = k => `<option value="">지문 없음</option>` + d.passages.map((p, i) => `<option value="${p.id}" ${k === p.id ? 'selected' : ''}>지문 ${i + 1}${p.title ? ': ' + esc(p.title) : ''}</option>`).join('');
+  return `<section class="tpanel">
+   <div class="thead"><h2>${d.id ? '문제 세트 편집' : '새 문제 세트'}</h2><button class="btn ghost small" data-act="t-cancel">${T.cancelArm ? '한 번 더 누르면 저장하지 않고 나가요' : '저장하지 않고 나가기'}</button></div>
+   <label class="fld" for="t-title">세트 이름<input id="t-title" data-f="title" value="${esc(d.title || '')}" placeholder="예: Lesson 10 · 2차시 (교과서 134~135쪽)" maxlength="60"></label>
+   <h3 class="tsub">지문<small>문제 옆에 함께 보여 줄 영어 글이에요. 한 줄에 한 문장씩 쓰면 그대로 읽어 줘요.</small></h3>
+   <div class="plist">${d.passages.map((p, i) => `<div class="pcard"><div class="prow"><b>지문 ${i + 1}</b><input id="pt${i}" data-pf="title" data-i="${i}" value="${esc(p.title)}" placeholder="제목 (예: Our Camping Trip)"><button class="btn ghost small danger" data-act="t-pdel" data-i="${i}">지문 지우기</button></div>
+     <textarea id="pl${i}" data-pf="lines" data-i="${i}" rows="4" placeholder="I like hiking in the forest.&#10;I'm going to go camping this weekend.">${esc(p.lines.join('\n'))}</textarea></div>`).join('')}</div>
+   <div><button class="btn ghost small" data-act="t-padd">+ 지문 추가</button></div>
+   <h3 class="tsub">문제 ${d.questions.length}개<small>보기 왼쪽 동그라미로 정답을 고르세요. 영어 문장에 ____ (밑줄 4개)를 쓰면 빈칸으로 보여요. 보기는 2~4개 쓰면 돼요.</small></h3>
+   <div class="qlist">${d.questions.map((Q, i) => `<div class="qcard" id="qcard${i}"><div class="qtop"><b>${i + 1}</b>
+      <input id="qt${i}" class="qtype" data-qf="t" data-i="${i}" value="${esc(Q.t)}" placeholder="유형 (예: 낱말 뜻)">
+      <select id="qp${i}" data-qf="p" data-i="${i}" aria-label="${i + 1}번 문제와 함께 볼 지문">${popts(Q.p || '')}</select>
+      <span class="qtools"><button class="btn ghost small" data-act="t-up" data-i="${i}" aria-label="${i + 1}번 위로">↑</button><button class="btn ghost small" data-act="t-down" data-i="${i}" aria-label="${i + 1}번 아래로">↓</button><button class="btn ghost small danger" data-act="t-qdel" data-i="${i}">삭제</button></span></div>
+     <input id="qq${i}" data-qf="q" data-i="${i}" value="${esc(Q.q)}" placeholder="질문 (예: 남자아이는 누구와 캠핑을 가나요?)" aria-label="${i + 1}번 질문">
+     <input id="qe${i}" class="en" data-qf="en" data-i="${i}" value="${esc(Q.en)}" placeholder="영어 문장 (선택) 예: We're going to ____ hamburgers." aria-label="${i + 1}번 영어 문장">
+     <div class="copts">${[0, 1, 2, 3].map(j => `<label class="copt" for="qc${i}_${j}"><input type="radio" name="qa${i}" id="qa${i}_${j}" data-qa="${i}" value="${j}" ${Q.a === j ? 'checked' : ''} aria-label="보기 ${j + 1}을 정답으로"><input id="qc${i}_${j}" data-qc="${j}" data-i="${i}" value="${esc(Q.c[j])}" placeholder="보기 ${j + 1}${j > 1 ? ' (없어도 돼요)' : ''}"></label>`).join('')}</div>
+   </div>`).join('')}</div>
+   <div><button class="btn ghost" data-act="t-qadd">+ 문제 추가</button></div>
+   <details class="bulk" ${T.bulkOpen ? 'open' : ''}><summary>구글 시트에서 한꺼번에 붙여넣기</summary>
+    <p>시트에 아래 순서로 칸을 만들고, 표를 그대로 복사해 붙여넣으세요. 첫 줄의 제목 행은 있어도 괜찮아요. 지문 번호는 위에 만든 지문의 번호예요.</p>
+    <code class="fmt">유형 → 질문 → 영어 문장 → 보기1 → 보기2 → 보기3 → 보기4 → 정답 번호 → 지문 번호</code>
+    <textarea id="t-bulk" data-f="bulk" rows="6" placeholder="여기에 붙여넣기">${esc(T.bulk || '')}</textarea>
+    <div class="brow"><button class="btn small" data-act="t-bulkadd">붙여넣은 문제 추가</button><button class="btn ghost small" data-act="t-head">제목 행 복사</button><button class="btn ghost small" data-act="t-export">지금 문제를 표로 복사</button></div>
+   </details>
+   <div class="savebar"><span class="tmsg ${T.err ? 'err' : ''}" role="status">${esc(T.msg || '')}</span><button class="btn" data-act="t-save">저장하고 이 세트 쓰기</button></div>
+  </section>`;
+}
+const HEAD = ['유형', '질문', '영어 문장', '보기1', '보기2', '보기3', '보기4', '정답 번호', '지문 번호'];
+function exportTSV(d) {
+  return [HEAD.join('\t')].concat(d.questions.map(Q => { const pi = d.passages.findIndex(p => p.id === Q.p);
+    return [Q.t, Q.q, (Q.en || '').replace(/\n/g, ' '), Q.c[0] || '', Q.c[1] || '', Q.c[2] || '', Q.c[3] || '', Q.a + 1, pi >= 0 ? pi + 1 : ''].join('\t'); })).join('\n');
+}
+function parseBulk(txt, d) {
+  let added = 0, skipped = 0;
+  const rows = txt.split(/\r?\n/).map(r => (r.includes('\t') ? r.split('\t') : r.split('|')).map(x => x.trim()));
+  if (d.questions.length === 1 && !d.questions[0].q && d.questions[0].c.every(x => !x)) d.questions = [];
+  for (const r of rows) {
+    if (r.every(x => !x)) continue;
+    const [t, qq, en, c1, c2, c3, c4, ans, pn] = r; const a = parseInt(ans, 10); const c = [c1, c2, c3, c4].map(x => x || '');
+    if (!qq || isNaN(a) || a < 1 || a > 4 || !c[a - 1]) { skipped++; continue; }
+    const p = pn && d.passages[+pn - 1] ? d.passages[+pn - 1].id : null;
+    d.questions.push({ t: t || '', p, q: qq, en: en || '', c, a: a - 1 }); added++;
+  }
+  return { added, skipped };
+}
+function tFail(msg, i) { T.msg = msg; T.err = true; render(); if (i != null) { const el = document.getElementById('qq' + i); el && el.focus(); el && el.scrollIntoView({ block: 'center' }); } }
+async function saveDraft() {
+  const d = T.draft, title = (d.title || '').trim();
+  if (!title) return tFail('세트 이름을 써 주세요.');
+  const qs = [];
+  for (let i = 0; i < d.questions.length; i++) {
+    const Q = d.questions[i];
+    if (!Q.q.trim() && !Q.en.trim() && Q.c.every(x => !x.trim())) continue;
+    const ch = []; let a = -1; Q.c.forEach((x, j) => { if (x.trim()) { if (j === Q.a) a = ch.length; ch.push(x.trim()); } });
+    if (!Q.q.trim()) return tFail(`${i + 1}번 문제에 질문을 써 주세요.`, i);
+    if (ch.length < 2) return tFail(`${i + 1}번 문제에 보기를 2개 이상 써 주세요.`, i);
+    if (a < 0) return tFail(`${i + 1}번 문제에서 정답으로 고른 보기가 비어 있어요.`, i);
+    qs.push({ t: Q.t.trim() || '문제', p: Q.p || null, q: Q.q.trim(), en: Q.en.trim(), c: ch, a });
+  }
+  if (!qs.length) return tFail('문제를 1개 이상 만들어 주세요.');
+  const ps = d.passages.map(p => ({ id: p.id, title: p.title.trim(), lines: p.lines.map(l => l.trim()).filter(Boolean) })).filter(p => p.lines.length);
+  const ids = new Set(ps.map(p => p.id)); qs.forEach(Q => { if (Q.p && !ids.has(Q.p)) Q.p = null; });
+  T.msg = '저장하는 중이에요…'; T.err = false; render();
+  try {
+    const r = await call({ action: 'saveSet', set: { id: d.id || null, title, passages: ps, questions: qs } });
+    if (!r || !r.ok) throw new Error('save');
+    await call({ action: 'useSet', id: r.id });
+    await loadSets(); await refresh();
+    SFX.saved(); view = 'sets'; T = { msg: `“${title}” 세트를 저장했어요. 이제 학생 화면에 이 세트가 나와요.` };
+  } catch (e) { if (view === 'login') return; T.msg = '저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; T.err = true; }
+  render();
+}
+function tInput(t) {
+  if (!T || !T.draft) return false; const d = T.draft, i = +t.dataset.i;
+  if (t.dataset.f === 'title') d.title = t.value;
+  else if (t.dataset.f === 'bulk') { T.bulk = t.value; return true; }
+  else if (t.dataset.pf === 'title') d.passages[i].title = t.value;
+  else if (t.dataset.pf === 'lines') d.passages[i].lines = t.value.split('\n');
+  else if (t.dataset.qf === 'p') d.questions[i].p = t.value || null;
+  else if (t.dataset.qf) d.questions[i][t.dataset.qf] = t.value;
+  else if (t.dataset.qc != null) d.questions[i].c[+t.dataset.qc] = t.value;
+  else if (t.dataset.qa != null) d.questions[+t.dataset.qa].a = +t.value;
+  else return false;
+  T.dirty = true; T.cancelArm = false; return true;
+}
+function copyText(txt, okMsg) {
+  const done = () => { T.msg = okMsg; T.err = false; const m = document.querySelector('.savebar .tmsg'); if (m) { m.textContent = okMsg; m.classList.remove('err'); } };
+  try { navigator.clipboard.writeText(txt).then(done, () => { T.bulk = txt; T.bulkOpen = true; T.msg = '복사가 막혀 있어서 아래 칸에 넣어 두었어요. 직접 선택해서 복사해 주세요.'; render(); const b = document.getElementById('t-bulk'); b && b.select(); }); }
+  catch (e) { T.bulk = txt; T.bulkOpen = true; render(); }
+}
+async function tClick(a, b) {
+  const id = b.dataset.id, i = +b.dataset.i;
+  if (a === 't-open') { view = 'sets'; T = { msg: '' }; render(); await loadSets(); if (view === 'sets') render(); return; }
+  if (a === 't-back') { view = 'main'; T = null; render(); refresh(); return; }
+  if (a === 't-use') {
+    T.msg = '바꾸는 중이에요…'; T.err = false; render();
+    try { const r = await call({ action: 'useSet', id }); if (r && r.ok) { ACTIVE_ID = r.active; await refresh(); SFX.saved(); T.msg = '세트를 바꿨어요. 새로 들어오는 학생부터 이 문제가 나와요.'; } else throw 0; }
+    catch (e) { if (view === 'login') return; T.msg = '바꾸지 못했어요. 다시 눌러 주세요.'; T.err = true; }
+    render(); return;
+  }
+  if (a === 't-new') { view = 'edit'; T = { draft: { id: null, title: '', passages: [], questions: [newQ()] } }; window.scrollTo(0, 0); }
+  else if (a === 't-edit') { view = 'edit'; T = { draft: toDraft(allSets().find(x => x.id === id)) }; window.scrollTo(0, 0); }
+  else if (a === 't-copy') { const d = toDraft(allSets().find(x => x.id === id)); d.id = null; d.title = d.title + ' (복사본)'; view = 'edit'; T = { draft: d, dirty: true }; window.scrollTo(0, 0); }
+  else if (a === 't-del') {
+    if (T.confirmDel !== id) { T.confirmDel = id; T.msg = ''; }
+    else {
+      T.confirmDel = null; const s = SETS.find(x => x.id === id);
+      try { const r = await call({ action: 'delSet', id }); if (!r || !r.ok) throw 0; ACTIVE_ID = r.active; await loadSets(); await refresh(); T.msg = `“${s ? s.title : ''}” 세트를 지웠어요.`; T.err = false; }
+      catch (e) { if (view === 'login') return; T.msg = '지우지 못했어요. 인터넷 연결을 확인해 주세요.'; T.err = true; }
+    }
+  }
+  else if (a === 't-cancel') { if (T.dirty && !T.cancelArm) { T.cancelArm = true; } else { view = 'sets'; T = { msg: '' }; window.scrollTo(0, 0); } }
+  else if (a === 't-padd') { T.draft.passages.push({ id: 'p' + Date.now().toString(36), title: '', lines: [] }); T.dirty = true; }
+  else if (a === 't-pdel') { const pid = T.draft.passages[i].id; T.draft.passages.splice(i, 1); T.draft.questions.forEach(Q => { if (Q.p === pid) Q.p = null; }); T.dirty = true; }
+  else if (a === 't-qadd') { T.draft.questions.push(newQ()); T.dirty = true; render(); const n = T.draft.questions.length - 1; const el = document.getElementById('qq' + n); el && (el.scrollIntoView({ block: 'center' }), el.focus()); return; }
+  else if (a === 't-qdel') { T.draft.questions.splice(i, 1); if (!T.draft.questions.length) T.draft.questions.push(newQ()); T.dirty = true; }
+  else if (a === 't-up' || a === 't-down') { const qs = T.draft.questions, j = a === 't-up' ? i - 1 : i + 1; if (j < 0 || j >= qs.length) return; [qs[i], qs[j]] = [qs[j], qs[i]]; T.dirty = true; }
+  else if (a === 't-bulkadd') {
+    const r = parseBulk(T.bulk || '', T.draft); T.dirty = true; T.err = !r.added;
+    T.msg = r.added ? `문제 ${r.added}개를 추가했어요.${r.skipped ? ` 형식이 맞지 않은 ${r.skipped}줄은 건너뛰었어요(제목 행 포함).` : ''}` : '추가된 문제가 없어요. 칸 순서와 정답 번호(1~4)를 확인해 주세요.';
+    if (r.added) T.bulk = '';
+  }
+  else if (a === 't-head') { copyText(HEAD.join('\t'), '제목 행을 복사했어요. 구글 시트 A1 칸에 붙여넣으세요.'); return; }
+  else if (a === 't-export') { copyText(exportTSV(T.draft), '문제를 표 형식으로 복사했어요. 구글 시트에 붙여넣으면 칸이 나뉘어 들어가요.'); return; }
+  else if (a === 't-save') { saveDraft(); return; }
+  render();
+}
+
+/* ---------- 입력 ---------- */
+async function login() {
+  const el = document.getElementById('pw'); PW = (el && el.value || '').trim();
+  if (!PW) return;
+  const m = document.getElementById('pwmsg'); if (m) { m.textContent = '확인하는 중…'; m.classList.remove('err'); }
+  try {
+    const r = await api({ action: 'dash', pw: PW }, 3);
+    if (r && r.ok) { try { sessionStorage.setItem(LS_PW, PW); } catch (e) {} saving = ''; take(r); view = 'main'; SFX.bell(); render(); loadSets().then(() => { if (view === 'main') paint(); }); return; }
+    saving = r && r.error === 'pw' ? '비밀번호가 맞지 않아요.' : '서버에 연결하지 못했어요. 다시 눌러 주세요.';
+  } catch (e) { saving = '서버에 연결하지 못했어요. 인터넷을 확인해 주세요.'; }
+  PW = ''; render();
+}
+app.addEventListener('input', e => { tInput(e.target); });
+app.addEventListener('change', e => {
+  const t = e.target; if (tInput(t)) return;
+  if (t.dataset.actChange === 'limit') { const v = +t.value; config({ limit: v }, `한 사람이 ${v ? v + '문제씩' : '전체 문제를'} 풀어요.`); }
+});
+app.addEventListener('keydown', e => {
+  if (e.target.id === 'pw' && e.key === 'Enter') login();
+  if (e.target.dataset && e.target.dataset.gn != null && e.key === 'Enter') saveNames();
+});
+function saveNames() { const names = D.allNames.slice(); app.querySelectorAll('[data-gn]').forEach(el => { names[+el.dataset.gn] = el.value.trim() || `${+el.dataset.gn + 1}모둠`; }); config({ names }, '모둠 이름을 저장했어요.'); }
+app.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  if (a.startsWith('t-')) { if (a !== 't-save') SFX.click(); tClick(a, b); return; }
+  if (a === 'login') return login();
+  if (a === 'open') {
+    const v = b.dataset.v; if (v === D.open) return;
+    if (v === 'open') SFX.bell(); else if (v === 'closed') SFX.midnight(); else SFX.pick();
+    config({ open: v }, { wait: '준비 중이에요. 학생들이 모둠을 고르고 기다려요.', open: '가게 문을 열었어요! 학생들이 풀기 시작해요.', closed: '자정이 되었어요. 학생 화면에 순위가 나와요.' }[v]);
+  }
+  else if (a === 'n') { const n = +b.dataset.n; if (n === D.n) return; SFX.pick(); config({ n }, `${n}모둠으로 바꿨어요.`); }
+  else if (a === 'names') saveNames();
+  else if (a === 'adj') { SFX.click(); try { const r = await call({ action: 'adjust', group: +b.dataset.g, delta: +b.dataset.d }); if (r && r.ok) { take(r); paint(); } } catch (err) {} }
+  else if (a === 'reset') {
+    if (!confirmReset) { confirmReset = true; paintCtl(); setTimeout(() => { confirmReset = false; if (view === 'main') paintCtl(); }, 6000); return; }
+    confirmReset = false; saving = '새 수업을 준비하는 중…'; paintCtl();
+    try { const r = await call({ action: 'reset' }); if (r && r.ok) { take(r); saving = '새 수업을 시작했어요. 학생들은 모둠을 다시 골라요.'; SFX.saved(); } } catch (err) { saving = '!초기화하지 못했어요. 다시 눌러 주세요.'; }
+    render();
+  }
+  else if (a === 'big') { view = 'big'; render(); document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); }
+  else if (a === 'back') { view = 'main'; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); }
+});
+
+/* ---------- 시작 ---------- */
+document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
+(async function boot() {
+  if (PW) {
+    try { const r = await api({ action: 'dash', pw: PW }, 3); if (r && r.ok) { take(r); view = 'main'; render(); loadSets().then(() => { if (view === 'main') paint(); }); } else { PW = ''; view = 'login'; render(); } }
+    catch (e) { view = 'login'; saving = '서버에 연결하지 못했어요.'; render(); }
+  } else render();
+  setInterval(refresh, 4000);
+})();
+</script>
+</body>
+</html>
