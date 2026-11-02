@@ -281,3 +281,48 @@ function countUp(el, from, to, dur) {
   const t0 = performance.now(); dur = dur || 900;
   (function step(now) { const p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3); el.textContent = Math.round(from + (to - from) * e); if (p < 1) requestAnimationFrame(step); })(t0);
 }
+
+/* =====================================================================
+ *  만든 효과음·배경음 파일 (sfx 폴더). 파일을 못 불러오면 위의 합성 소리를 그대로 써요.
+ * ===================================================================== */
+const SFX_FILES = { click: 'sfx_click', start: 'sfx_start', correct: 'sfx_correct', wrong: 'sfx_wrong', whoosh: 'sfx_whoosh',
+  plunk: 'sfx_plunk', coin: 'sfx_coin', gold: 'sfx_gold', pop: 'sfx_pop', drum: 'sfx_stamp', stamp: 'sfx_stamp', page: 'sfx_page' };
+const SFX_VOL = { click: .5, page: .6, pop: .7, coin: .8, start: .8, gold: .9 };
+const BUF = {}; let bufLoading = null;
+function loadSfx() {
+  const c = ac(); if (!c || bufLoading) return bufLoading;
+  bufLoading = Promise.all([...new Set(Object.values(SFX_FILES))].map(n =>
+    fetch(`sfx/${n}.mp3`).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => c.decodeAudioData(b, ok, no)))
+      .then(buf => { BUF[n] = buf; }).catch(() => {})));
+  return bufLoading;
+}
+function playBuf(n, vol) {
+  const c = ac(), buf = BUF[n]; if (!c || !buf) return false;
+  const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = vol == null ? 1 : vol;
+  s.connect(g).connect(c.destination); s.start(); return true;
+}
+Object.keys(SFX_FILES).forEach(k => {
+  const synth = SFX[k];
+  SFX[k] = function () { if (muted) return; loadSfx(); if (!playBuf(SFX_FILES[k], SFX_VOL[k])) synth && synth.apply(SFX, arguments); };
+});
+SFX.fanfare = function () { if (muted) return; playBuf('sfx_start', .7); Music.award(); };
+['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, () => loadSfx(), { once: true, passive: true }));
+
+/* 배경음: 축제 음악은 반복, 시상식에서는 시상식 음악 */
+const Music = {
+  el: null, cur: '', wantOff: lsGet('music') === '0',
+  play(name, loop, vol) {
+    if (muted || this.wantOff) { this.stop(); return; }
+    if (this.cur === name && this.el && !this.el.paused) return;
+    this.stop();
+    try {
+      const a = new Audio(`sfx/${name}.mp3`); a.loop = loop; a.volume = vol; a.preload = 'auto';
+      const p = a.play(); if (p && p.catch) p.catch(() => {});
+      this.el = a; this.cur = name;
+    } catch (e) {}
+  },
+  festival() { this.play('bgm_festival_loop', true, .22); },
+  award() { this.play('bgm_award', false, .45); },
+  stop() { if (this.el) { try { this.el.pause(); } catch (e) {} } this.el = null; this.cur = ''; },
+  toggle() { this.wantOff = !this.wantOff; lsSet('music', this.wantOff ? '0' : '1'); if (this.wantOff) this.stop(); return !this.wantOff; }
+};

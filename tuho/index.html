@@ -19,6 +19,7 @@
     <div class="grow"></div>
     <div class="prog" id="prog"></div>
     <button class="iconbtn" id="boardBtn" title="모둠 순위">🏆 순위</button>
+    <button class="iconbtn" id="musicBtn" title="배경 음악 켜기/끄기">🎵</button>
     <button class="iconbtn" id="muteBtn" title="소리 켜기/끄기">🔊</button>
     <a class="iconbtn" id="teacherTop" href="teacher.html" title="교사용 화면 (비밀번호)" style="text-decoration:none">🔒 교사용</a>
   </div>
@@ -76,7 +77,11 @@ function boardHTML(withTitle) {
 }
 $('#boardBtn').onclick = () => { SFX.click(); const b = $('#popboard'); b.classList.toggle('hidden'); b.innerHTML = boardHTML(true); };
 function paintMute() { $('#muteBtn').textContent = muted ? '🔇' : '🔊'; }
-$('#muteBtn').onclick = () => { muted = !muted; lsSet('mute', muted ? '1' : '0'); paintMute(); if (muted) try { speechSynthesis.cancel(); } catch (e) {} };
+$('#muteBtn').onclick = () => { muted = !muted; lsSet('mute', muted ? '1' : '0'); paintMute(); if (muted) { Music.stop(); try { speechSynthesis.cancel(); } catch (e) {} } else musicForPhase(); };
+function paintMusic() { $('#musicBtn').style.opacity = Music.wantOff ? .45 : 1; $('#musicBtn').title = Music.wantOff ? '배경 음악 켜기' : '배경 음악 끄기'; }
+$('#musicBtn').onclick = () => { Music.toggle(); paintMusic(); musicForPhase(); };
+function musicForPhase() { if (!me || me.group == null || !SRV) return; if (SRV.open === 'closed') Music.award(); else if (me.phase !== 'wait') Music.festival(); }
+paintMusic();
 paintMute();
 
 /* ---------- 서버 상태 받아오기 ---------- */
@@ -123,6 +128,7 @@ function route() {
   window.scrollTo(0, 0);
   if (!me || me.group == null) return renderStart();
   paintTop();
+  musicForPhase();
   switch (me.phase) {
     case 'wait': return renderWait();
     case 'story': return renderStory();
@@ -215,10 +221,10 @@ function renderStory() {
       <button class="btn ${k === STORY.length - 1 ? '' : 'blue'}" id="next">${k === STORY.length - 1 ? '축제 지도 보기 🗺️' : '다음 →'}</button>
     </div></section>`;
   bindSay();
-  if ($('#prev')) $('#prev').onclick = () => { SFX.click(); me.story = k - 1; saveMe(); renderStory(); };
+  if ($('#prev')) $('#prev').onclick = () => { SFX.page(); me.story = k - 1; saveMe(); renderStory(); };
   $('#next').onclick = () => {
     SFX.click();
-    if (k < STORY.length - 1) { me.story = k + 1; saveMe(); renderStory(); }
+    if (k < STORY.length - 1) { SFX.page(); me.story = k + 1; saveMe(); renderStory(); }
     else { me.phase = 'map'; saveMe(); route(); }
   };
 }
@@ -444,6 +450,7 @@ function landed(h, ans) {
   setTimeout(() => $('#after').scrollIntoView({ behavior: 'smooth', block: 'end' }), 300);
 }
 function setTag(k, v, mine) {
+  if (!mine) SFX.pop();
   const t = $('#tag' + k); if (!t) return;
   const fill = mine ? (v === 50 ? '#d79a1c' : TEAMC[me.group]) : '#ece0c6';
   t.innerHTML = `<rect x="-38" y="-22" width="76" height="44" rx="12" fill="${fill}" stroke="#2b2118" stroke-width="3"/>
@@ -485,6 +492,7 @@ function awardHTML() {
     <div style="text-align:left;margin-top:10px">${boardHTML(false)}</div></div>`;
 }
 function showAward() { showOverlay(awardHTML()); SFX.fanfare(); confetti(120); }
+document.addEventListener('pointerdown', () => { if (!Music.el) musicForPhase(); }, { passive: true });
 function updateAward() { if ($('#overlay').innerHTML) showOverlay(awardHTML()); }
 
 /* ---------- 시작 ---------- */
