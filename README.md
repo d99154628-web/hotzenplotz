@@ -19,3 +19,11 @@
 - 학생: https://d99154628-web.github.io/hotzenplotz/tuho/
 - 교사: https://d99154628-web.github.io/hotzenplotz/tuho/teacher.html
 - 연습 모드(서버 없이): 주소 끝에 `?demo`
+
+## 보리봇의 세계 문화 박물관 (모둠 합산판)
+
+6학년 영어 Lesson 11 3·5차시 (교과서 154~155, 158~159쪽) — 모둠을 고르고 각자 50문제(고르기·낱말 쓰기·문장 만들기)를 풀면 기념품 캡슐 점수가 모둠 점수로 합산돼요. 틀린 문제는 몇 문제 뒤에 다시 나와요.
+
+- 학생: https://d99154628-web.github.io/hotzenplotz/museum/
+- 교사: https://d99154628-web.github.io/hotzenplotz/museum/teacher.html
+- 연습 모드(서버 없이): 주소 끝에 `?demo`

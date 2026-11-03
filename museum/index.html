@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>보리봇의 세계 문화 박물관</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='14' width='80' height='70' rx='26' fill='%23f4fbf9' stroke='%2324525a' stroke-width='6'/%3E%3Crect x='22' y='28' width='56' height='42' rx='14' fill='%231d3f46'/%3E%3Crect x='35' y='40' width='8' height='14' rx='4' fill='%237ff5e3'/%3E%3Crect x='57' y='40' width='8' height='14' rx='4' fill='%237ff5e3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&display=swap">
+<style>:root{color-scheme:light}body{margin:0;font:15px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap" id="app"><p class="loading">박물관 불을 켜는 중이에요…</p></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<a class="quicklink" href="teacher.html" target="_blank" rel="noopener">🔑 교사용 화면</a>
+<script src="common.js"></script>
+<script src="demo.js"></script>
+<script>
+/* =====================================================================
+ *  학생 화면 — 모둠을 고르고 각자 풀어요. 캡슐에서 나온 점수는 모둠 점수로 합산돼요.
+ * ===================================================================== */
+const app = document.getElementById('app');
+let G = null;          // 서버 상태(모둠 수, 이름, 점수, 개관 여부 등)
+let SET = null;        // 오늘의 문제 세트
+let S = null;          // 이 학생의 진행 상태
+let deltas = {};       // 점수 바뀐 모둠 → 변화량 (애니메이션)
+let lastFeedT = 0, joinMsg = '', busy = false;
+const draft = { group: null, name: '' };
+
+function saveMe() { if (S) lsSet('me', JSON.stringify(S)); }
+function loadMe() { try { return JSON.parse(lsGet('me') || 'null'); } catch (e) { return null; } }
+
+/* ---------- 문제 세트 ---------- */
+async function loadSet() {
+  if (!G || G.setId === 'default') { SET = DEFAULT_SET; return; }
+  try { const c = JSON.parse(lsGet('set') || 'null'); if (c && c.id === G.setId && c.ver === G.setVer) { SET = c; return; } } catch (e) {}
+  try { const r = await api({ action: 'set' }, 3); if (r && r.set) { SET = r.set; lsSet('set', JSON.stringify(r.set)); return; } } catch (e) {}
+  SET = DEFAULT_SET;
+}
+const Q = () => SET.questions[S.order[S.qi]];
+const limit = () => { const n = SET ? SET.questions.length : 0; return G && G.limit ? G.limit : n; };
+/* 문제 순서: 섞어서 줄 세우고, 모자라면 다시 섞어 이어 붙임 (같은 문제가 바로 이어지지 않게) */
+function extendOrder(o, need) {
+  const n = SET.questions.length;
+  while (o.length < need + 2) { let s = shuffle(SET.questions.map((_, k) => k)); if (o.length && s[0] === o[o.length - 1]) s.push(s.shift()); o = o.concat(s); }
+  return o;
+}
+function newOrder() { return extendOrder([], limit()); }
+/* 틀린 문제는 몇 문제 뒤에 다시 나옴 */
+function requeue() {
+  const k = S.order[S.qi], at = S.qi + 4 + Math.floor(Math.random() * 4);
+  if (at < limit()) S.order.splice(at, 0, k);
+}
+function prepQ() {
+  const q = Q(); S.typed = ''; S.built = [];
+  S.tiles = q && q.w ? (() => { let t; do { t = shuffle(q.w.map((_, i) => i)); } while (q.w.length > 1 && t.every((v, i) => v === i)); return t; })() : null;
+}
+
+/* ---------- 서버 상태 반영 ---------- */
+function takeState(st, quiet) {
+  if (!st || !st.ok || !st.sid) return;
+  const old = G;
+  if (old && old.sid === st.sid) st.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) deltas[i] = (deltas[i] || 0) + d; });
+  G = st;
+  const fresh = (st.feed || []).filter(f => f.t > lastFeedT).reverse();
+  if (lastFeedT && S && S.group != null) fresh.forEach(f => {
+    if (f.id && f.id === S.id) return;
+    const mine = (f.d || []).find(x => x[0] === S.group);
+    if (mine && f.g !== S.group) toast(`${esc(G.names[f.g] || '')} ${esc(f.who)}: ${esc(f.msg)}`, mine[1] > 0 ? 'up' : 'down');
+    else if (mine && f.g === S.group && !quiet) toast(`우리 모둠 ${esc(f.who)}: ${esc(f.msg)}`, mine[1] > 0 ? 'up' : 'down');
+  });
+  if (st.feed && st.feed.length) lastFeedT = Math.max(lastFeedT, st.feed[0].t);
+  if (!lastFeedT) lastFeedT = st.now || Date.now();
+}
+
+function route() {
+  if (!G) return;
+  if (S && S.sid !== G.sid) { S = null; lsSet('me', ''); joinMsg = '선생님이 새 수업을 시작했어요. 모둠을 다시 골라 주세요.'; }
+  if (S && S.group >= G.n) { S.screen = 'join'; draft.group = null; draft.name = S.name; joinMsg = '모둠 수가 바뀌었어요. 모둠을 다시 골라 주세요.'; }
+  if (!S || S.screen === 'join') return;
+  if (S.order.length < limit()) S.order = extendOrder(S.order, limit());
+  const before = S.screen;
+  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase)) S.screen = 'end'; }
+  else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
+  else {
+    if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
+    if (S.screen === 'game' && S.phase === 'q' && S.qi >= limit()) finish();
+  }
+  if (before !== S.screen) {
+    if (S.screen === 'game' && before === 'wait') SFX.bell();
+    if (S.screen === 'end') SFX.finale();
+  }
+}
+
+async function poll() {
+  try {
+    const st = await api({ action: 'state' });
+    const verChanged = G && st && st.ok && (st.setVer !== G.setVer);
+    takeState(st);
+    if (verChanged && (!S || S.screen === 'join' || S.screen === 'wait' || (S.qi === 0 && S.phase === 'q'))) {
+      await loadSet(); if (S && S.qi === 0) { S.order = newOrder(); prepQ(); }
+    }
+    route();
+    const ae = document.activeElement;
+    const typing = ae && (ae.id === 'myname' || ae.id === 'typed');
+    if (!typing) render();
+  } catch (e) {}
+}
+
+/* ---------- 화면 조각 ---------- */
+const shortName = () => esc(S.name.replace(/^\d+\s*(번)?\s*/, '') || S.name);
+function header() {
+  const g = S && S.screen === 'game';
+  const prog = !S ? 0 : (S.screen === 'end' || S.screen === 'done') ? 1 : Math.min(S.qi / Math.max(limit(), 1), 1);
+  return `<header class="top"><div class="brand"><span class="logo">${boriSVG(S && S.phase === 'wrong' ? 'oops' : S && S.phase === 'right' ? 'happy' : 'idle', 52)}</span><div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
+  ${S && S.screen !== 'join' ? `<div class="toolbar">${memoryBar(prog)}${g ? `<span class="chip">${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
+    <span class="who"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(G.names[S.group])} · ${esc(S.name)}</span>
+    <button class="iconbtn" data-act="mute" aria-label="소리 켜기/끄기">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
+}
+function board() {
+  const mine = S ? S.group : -1, top = Math.max(...G.totals);
+  return `<section class="board" aria-label="모둠 점수">${G.totals.map((s, i) => `
+   <div class="team ${i === mine ? 'mine' : ''} ${deltas[i] ? 'bump' : ''}" style="--gc:${TEAMC[i]}">
+    <span class="nm">${esc(G.names[i])}${G.shields[i] ? `<span class="sh" title="우산 논라">☂️${G.shields[i] > 1 ? '×' + G.shields[i] : ''}</span>` : ''}${s === top && top > 0 ? '<span class="crownmark" title="1등">🏆</span>' : ''}</span>
+    <span class="sc"><span data-sc data-to="${s}" data-from="${deltas[i] ? s - deltas[i] : s}">${deltas[i] ? s - deltas[i] : s}</span><small>점</small></span>
+    ${deltas[i] ? `<span class="delta ${deltas[i] > 0 ? 'up' : 'down'}">${deltas[i] > 0 ? '+' : ''}${deltas[i]}</span>` : ''}
+   </div>`).join('')}</section>`;
+}
+function feedLine() {
+  const f = (G.feed || []).slice(0, 3);
+  if (!f.length) return '';
+  return `<section class="news" aria-label="박물관 소식"><span class="nlab">📢 박물관 소식</span>${f.map(x => `<span class="nitem"><span class="dot" style="background:${TEAMC[x.g] || '#999'}"></span>${esc(x.who)} · ${esc(x.msg)}</span>`).join('')}</section>`;
+}
+function heroArt() {
+  const items = ['tuho', 'nonla', 'djembe', 'sari', 'boomerang', 'yakgwa'];
+  return `<div class="hero" aria-hidden="true"><div class="hall">${items.map((k, i) => `<span class="case c${i}"><img src="${IMG(k)}" alt=""><i></i></span>`).join('')}</div>
+   <div class="herobori">${boriSVG('sleep', 96)}<span class="zz">Z z</span></div><div class="floor"></div></div>`;
+}
+function joinScreen() {
+  const can = draft.group != null && draft.name.trim();
+  return `${header()}<section class="card setup">
+   ${heroArt()}
+   <div class="intro"><p class="story">내일은 <em>세계 문화 박물관</em>이 문을 여는 날! 그런데 어젯밤 정전으로 도우미 로봇 <em>보리</em>의 기억이 몽땅 지워졌어요. 보리는 전시품을 볼 때마다 이렇게 물어요. <em class="en">“Do you know anything about …?”</em> 보리의 질문에 답해 기억을 되찾아 주세요. 정답을 맞히면 보리가 <em>기념품 캡슐 머신</em>을 돌려 줘요. 오늘은 모둠 친구들이 <em>각자</em> 풀고, 캡슐 점수는 <em>우리 모둠 점수</em>로 모여요!</p></div>
+   ${joinMsg ? `<p class="tnote">${esc(joinMsg)}</p>` : ''}
+   ${G.open === 'closed' ? `<p class="tnote">지금은 박물관이 문을 닫았어요. 선생님이 다시 열면 들어갈 수 있어요.</p>` : ''}
+   <div class="step"><span class="lab"><span class="num">1</span>우리 모둠을 골라요</span>
+    <div class="gpick" role="group" aria-label="모둠 고르기">${G.names.map((n, i) => `<button data-act="g" data-i="${i}" aria-pressed="${draft.group === i}" style="--gc:${TEAMC[i]}"><span class="dot"></span>${esc(n)}</button>`).join('')}</div></div>
+   <div class="step"><span class="lab"><span class="num">2</span>번호와 이름을 써요</span>
+    <input id="myname" class="nameinput" value="${esc(draft.name)}" maxlength="14" placeholder="예: 7 김하늘" autocomplete="off"></div>
+   <details class="catwrap"><summary>캡슐 머신 속 기념품 보기</summary>
+    <div class="catalog">${ITEMS.map(x => `<div class="cat ${x.kind}">${itemArt(x)}<span><b>${x.name}</b>${x.fx}</span></div>`).join('')}</div></details>
+   <div class="gorow"><button class="btn big" data-act="join" ${can && !busy && G.open !== 'closed' ? '' : 'disabled'}>${busy ? '보리를 깨우는 중…' : '🔌 보리 깨우러 가기'}</button></div>
+  </section>`;
+}
+function rulesMini() {
+  return `<ol class="rules"><li><b>보리의 질문</b>에 답해요. 고르기·낱말 쓰기·문장 만들기가 나와요.</li><li>맞히면 <b>캡슐 하나</b>를 골라 열어요. 점수는 <b>우리 모둠</b>에 더해져요.</li><li>틀린 문제는 몇 문제 뒤에 <b>다시</b> 나와요. 그때 꼭 맞혀요!</li></ol>`;
+}
+function waitScreen() {
+  return `${header()}${board()}<section class="card waitcard">${boriSVG('sleep', 110)}
+   <h2>보리가 아직 충전 중이에요</h2><p>${esc(G.names[S.group])} 친구들이 모이고 있어요. 선생님이 박물관 문을 열면 바로 시작돼요.</p>
+   ${rulesMini()}
+   ${S.qi === 0 ? `<button class="btn ghost" data-act="regroup">모둠 다시 고르기</button>` : ''}
+   ${voiceRow()}</section>`;
+}
+function boriLine() {
+  const n = shortName(), k = S.qi % 3;
+  if (S.phase === 'right') return ['삐빅! 기억이 돌아왔어요. 고마워요!', '정답! 기억 칩이 반짝반짝해요.', '와, 정말 똑똑해요! 캡슐 머신을 돌려 줄게요.'][k];
+  if (S.phase === 'wrong') return ['삐… 아직 흐릿해요. 정답을 같이 볼까요?', '앗, 다시 헷갈려요. 이 문제는 조금 뒤에 다시 물어볼게요.', '괜찮아요! 다음에 다시 나오면 꼭 맞혀 줘요.'][k];
+  const q = Q(), kind = qKind(q);
+  if (kind === 'type') return [`${n}, 이 낱말을 써 줄 수 있어요?`, `철자가 기억나지 않아요. ${n}이(가) 써 줄래요?`, `${n}, 빈칸에 들어갈 낱말을 알려 줘요!`][k];
+  if (kind === 'build') return [`낱말 카드가 뒤죽박죽이에요! ${n}, 순서대로 놓아 줄래요?`, `${n}, 문장을 다시 만들어 줘요.`, `카드를 눌러서 바른 문장을 만들어 줘요!`][k];
+  if (q.img && EXHIBIT[q.img]) return [`Do you know anything about ${EXHIBIT[q.img].name}? 저는 기억이 안 나요…`, `${n}, 이 전시품에 대해 알고 있어요?`, `음… I have no idea. ${n}이(가) 도와줄래요?`][k];
+  return [`${n}, 이 문제를 풀어 줄래요?`, `기억 칩 ${S.qi + 1}번을 고치는 중이에요. 도와줘요!`, `${n}, 어떤 게 맞을까요?`][k];
+}
+function enLine(q) {
+  if (!q.en) return '';
+  const html = esc(q.en).replace(/_{2,}/g, '<span class="blank">?</span>').replace(/\n/g, '<br>');
+  const say = /[a-z]/i.test(q.en) && !/[가-힣]/.test(q.en) ? ` <button class="speak" data-act="say" aria-label="영어 문장 듣기">🔊</button>` : '';
+  return `<p class="en">${html}${say}</p>`;
+}
+function answerArea(q) {
+  const shown = S.phase !== 'q', kind = qKind(q);
+  if (kind === 'choice') return `<div class="choices ${q.c.length === 2 ? 'two' : ''}">${q.c.map((c, i) => {
+    let cls = 'choice' + (isKr(q) ? ' kr' : ''); if (shown) { if (i === q.a) cls += ' right'; else if (i === S.picked) cls += ' wrong'; }
+    return `<button class="${cls}" data-act="ans" data-i="${i}" ${shown ? 'disabled' : ''}><span class="k">${i + 1}</span>${esc(c)}</button>`;
+  }).join('')}</div>`;
+  if (kind === 'type') {
+    return `<div class="typebox ${shown ? (S.phase === 'right' ? 'ok' : 'no') : ''}"><span class="hint">힌트: <b>${esc(q.hint || '')}</b></span>
+     <div class="trow"><input id="typed" value="${esc(S.typed)}" placeholder="여기에 영어로 써요" autocomplete="off" autocapitalize="off" spellcheck="false" ${shown ? 'disabled' : ''} aria-label="정답 낱말 쓰기">
+     ${shown ? '' : `<button class="btn" data-act="check" ${S.typed.trim() ? '' : 'disabled'}>확인</button>`}</div></div>`;
+  }
+  const used = new Set(S.built);
+  return `<div class="build ${shown ? (S.phase === 'right' ? 'ok' : 'no') : ''}">
+    <div class="slots" aria-label="내가 만든 문장">${S.built.length ? S.built.map((ti, j) => `<button class="tile on" data-act="untile" data-j="${j}" ${shown ? 'disabled' : ''}>${esc(q.w[ti])}</button>`).join('') : '<span class="ph">아래 카드를 순서대로 눌러요</span>'}</div>
+    <div class="pool">${S.tiles.map(ti => `<button class="tile" data-act="tile" data-t="${ti}" ${used.has(ti) || shown ? 'disabled' : ''}>${esc(q.w[ti])}</button>`).join('')}</div>
+    ${shown ? '' : `<div class="brow"><button class="btn ghost small" data-act="clear" ${S.built.length ? '' : 'disabled'}>다시 놓기</button><button class="btn" data-act="check" ${S.built.length === q.w.length ? '' : 'disabled'}>확인</button></div>`}</div>`;
+}
+function gallery() {
+  const q = Q(), kind = qKind(q);
+  let v = '';
+  if (S.phase === 'right') v = `<div class="verdict ok"><span>정답이에요! 캡슐 머신을 돌릴 수 있어요.</span><button class="btn" data-act="tobox">🎁 캡슐 머신으로</button></div>`;
+  if (S.phase === 'wrong') v = `<div class="verdict no"><span>아쉬워요. 정답은 <b class="ans">${esc(qAnswer(q))}</b>${kind === 'choice' ? ` (${q.a + 1}번)` : ''}<small>이 문제는 조금 뒤에 다시 나올 수 있어요.</small></span><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button></div>`;
+  const ex = q.img ? `<figure class="vitrine"><span class="spot"></span><img src="${IMG(q.img)}" alt="${esc(EXHIBIT[q.img] ? EXHIBIT[q.img].kr : '')}"><figcaption>No. ${String(S.order[S.qi] + 1).padStart(2, '0')}</figcaption></figure>` : '';
+  return `<section class="gallery ${S.phase}" aria-live="polite">
+   <div class="guide">${boriSVG(S.phase === 'right' ? 'happy' : S.phase === 'wrong' ? 'oops' : 'idle', 92)}
+    <div class="bubble"><div class="qhead"><span class="tag">${esc(q.t || '문제')}</span><span class="turn"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(S.name)}</span></div><p class="say">${boriLine()}</p></div></div>
+   <div class="exhibit ${q.img ? '' : 'solo'}">${ex}
+    <div class="placard"><p class="qtext"><span class="qn">Q${S.qi + 1}</span>${esc(q.q)}</p>${enLine(q)}${answerArea(q)}</div></div>
+   ${v}</section>`;
+}
+function machine() {
+  const opened = S.chosen != null; let bottom = '';
+  if (S.phase === 'target') {
+    const id = S.boxes[S.chosen];
+    const lab = { steal: '부메랑을 어느 모둠으로 던질까요? 10점을 들고 돌아와요.', ghost: '로봇 청소기가 우리 10점을 어느 모둠에 가져갈까요?', pass: '고장 바이러스를 어느 모둠에 보낼까요?' }[id];
+    bottom = `<p class="result">${lab}</p><div class="targets">${G.totals.map((_, i) => i).filter(i => i !== S.group).map(i => `<button data-act="target" data-i="${i}" style="--gc:${TEAMC[i]}"><span class="dot"></span>${esc(G.names[i])} · ${G.totals[i]}점${G.shields[i] ? ' ☂️' : ''}</button>`).join('')}</div>`;
+  } else if (S.phase === 'opening') {
+    bottom = S.err ? `<p class="result">${esc(S.err)}</p><button class="btn" data-act="retry">다시 열기</button>` : `<p class="result opening">캡슐을 여는 중이에요…</p>`;
+  } else if (opened) {
+    bottom = `<p class="result">${esc(S.msg)}</p><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button>`;
+  } else bottom = `<p class="pickhint">마음에 드는 캡슐을 하나 눌러 보세요.</p>`;
+  return `<section class="card machinecard"><h2>${shortName()}, 캡슐을 하나 골라요!</h2>
+   <div class="machine"><div class="dome">${S.boxes.map((id, i) => {
+    const x = item(id), me = S.chosen === i, [c1, c2] = CAPC[i];
+    return `<button class="cap ${opened ? (me ? 'pick ' + x.kind : 'dim') : ''}" data-act="box" data-i="${i}" ${opened ? 'disabled' : ''} aria-label="${i + 1}번 캡슐" style="--c1:${c1};--c2:${c2};--d:${i * .12}s">
+      <span class="ball"><span class="top"></span><span class="bot"></span><span class="no">${i + 1}</span></span>
+      ${opened && !me ? `<span class="peek ${x.kind}">${itemArt(x)}<b>${x.name}</b></span>` : ''}</button>`;
+   }).join('')}</div><div class="base"><span class="slot"></span><span class="knob"></span></div></div>
+   ${opened ? reveal(bottom) : bottom}</section>`;
+}
+function reveal(bottom) {
+  const x = item(S.boxes[S.chosen]);
+  return `<div class="reveal ${x.kind}"><div class="rart">${itemArt(x)}</div><div>
+   <span class="kind ${x.kind}">${KINDNAME[x.kind]}</span><h3>${x.name}</h3><p class="fx">${x.fx}</p><p class="enfx">“${esc(x.en)}”</p>${bottom}</div></div>`;
+}
+function myStats() {
+  return `<div class="mystats"><div><span>맞힌 문제</span><b>${S.right} / ${Math.min(S.qi, limit())}</b></div><div><span>우리 모둠에 보탠 점수</span><b>${S.myPts > 0 ? '+' : ''}${S.myPts}</b></div><div><span>연 캡슐</span><b>${S.opened}</b></div></div>`;
+}
+function doneScreen() {
+  return `${header()}${board()}${feedLine()}<section class="card waitcard">${boriSVG('happy', 110)}
+   <h2>보리의 기억을 모두 되찾았어요!</h2><p>선생님이 박물관 문을 닫을 때까지 모둠 점수판을 지켜보세요. 친구들의 캡슐이 아직 열리고 있어요.</p>${myStats()}</section>`;
+}
+function endScreen() {
+  const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s;
+  return `${header()}<section class="card end"><div class="ribbon">🎉 Grand Opening! 🎉</div>${boriSVG('happy', 100)}<h2>박물관이 무사히 문을 열었어요</h2><p>보리가 모든 전시품을 소개할 수 있게 되었어요. 오늘의 최고 큐레이터 모둠은?</p>
+   <div class="podium">${r.map((x, k) => `<div class="rank ${x.s === top ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}" style="--gc:${TEAMC[x.i]}"><span>${x.s === top ? '🏆' : k + 1 + '위'} · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
+   ${myStats()}</section>`;
+}
+function render() {
+  if (!G) return;
+  if (!S || S.screen === 'join') app.innerHTML = joinScreen();
+  else if (S.screen === 'wait') app.innerHTML = waitScreen();
+  else if (S.screen === 'done') app.innerHTML = doneScreen();
+  else if (S.screen === 'end') app.innerHTML = endScreen();
+  else app.innerHTML = header() + board() + feedLine() + (['box', 'target', 'opening', 'opened'].includes(S.phase) ? machine() : gallery());
+  countUp(app);
+  deltas = {};
+  saveMe();
+}
+window.onVoices = () => { if (S && S.screen === 'wait') render(); };
+
+/* ---------- 알림 ---------- */
+function toast(html, kind) {
+  const box = document.getElementById('toasts'), el = document.createElement('div');
+  el.className = 'toast ' + (kind || ''); el.innerHTML = html; box.appendChild(el);
+  if (kind === 'down') SFX.bad(); else if (kind === 'up') SFX.saved();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 600); }, 5200);
+  while (box.children.length > 3) box.firstChild.remove();
+}
+
+/* ---------- 동작 ---------- */
+async function join() {
+  if (busy) return; busy = true; render();
+  const id = (S && S.id) || uid();
+  try {
+    const r = await api({ action: 'join', sid: G.sid, id, group: draft.group, name: draft.name.trim() }, 3);
+    if (!r || !r.ok) { if (r && r.state) takeState(r.state); joinMsg = '들어가지 못했어요. 다시 눌러 주세요.'; busy = false; render(); return; }
+    takeState(r, true);
+    if (!SET) await loadSet();
+    const keep = S && S.sid === G.sid && S.id === id ? S : null;
+    if (!keep) { S = { sid: G.sid, id, order: [], qi: 0, phase: 'q', picked: null, boxes: [], chosen: null, target: null, msg: '', myPts: 0, right: 0, opened: 0 }; S.order = newOrder(); prepQ(); }
+    S.group = draft.group; S.name = draft.name.trim(); S.screen = 'wait'; joinMsg = '';
+    SFX.pick(); route();
+  } catch (e) { joinMsg = '인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+  busy = false; render();
+}
+function finish() { S.screen = 'done'; SendQueue.push({ action: 'finish', sid: S.sid, id: S.id }); SFX.good(); }
+function grade(ok, ansText) {
+  const q = Q();
+  S.phase = ok ? 'right' : 'wrong'; if (ok) S.right++; else requeue();
+  SFX[ok ? 'correct' : 'wrong']();
+  SendQueue.push({ action: 'answer', sid: S.sid, id: S.id, group: S.group, name: S.name, qi: S.qi, qid: S.order[S.qi], qn: (q.en ? q.q + ' / ' + q.en.replace(/\n/g, ' ') : q.q).slice(0, 120), ans: ansText, ok, eid: uid() });
+}
+async function openBox() {
+  S.phase = 'opening'; S.err = ''; render();
+  const id = S.boxes[S.chosen];
+  if (!S.eid) S.eid = uid();
+  saveMe();
+  try {
+    const r = await api({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: id, target: S.target, myPts: S.myPts, eid: S.eid }, 4);
+    if (!r || !r.ok) {
+      if (r && r.error === 'sid') { takeState(r.state); route(); render(); return; }
+      throw new Error('box');
+    }
+    takeState(r, true);
+    S.msg = r.msg; S.myPts += r.mine || 0; S.opened++; S.phase = 'opened'; S.eid = null;
+    const k = item(id).kind; setTimeout(() => SFX[k === 'g' ? 'good' : k === 'b' ? 'bad' : 'fate'](), 250);
+    route();
+  } catch (e) { S.err = '인터넷이 잠깐 끊겼어요. 아래 버튼을 눌러 다시 열어 주세요.'; }
+  render();
+}
+function nextQ() {
+  S.qi++; S.phase = 'q'; S.picked = null; S.chosen = null; S.boxes = []; S.msg = ''; S.target = null;
+  if (S.qi >= limit()) finish(); else { prepQ(); SFX.tick(); }
+  route();
+}
+function focusTyped() { const t = document.getElementById('typed'); if (t && !t.disabled) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
+
+app.addEventListener('input', e => {
+  if (e.target.id === 'myname') { draft.name = e.target.value; const b = app.querySelector('[data-act=join]'); if (b) b.disabled = !(draft.group != null && draft.name.trim() && G.open !== 'closed'); }
+  if (e.target.id === 'typed') { S.typed = e.target.value; const b = app.querySelector('.typebox [data-act=check]'); if (b) b.disabled = !S.typed.trim(); }
+});
+app.addEventListener('change', e => { const t = e.target; if (t.dataset.voice != null) { try { localStorage.setItem(LS_VOICE, t.value); } catch (er) {} sayLines(["Do you know anything about Tuho?"]); } });
+app.addEventListener('keydown', e => {
+  if (e.target.id === 'myname' && e.key === 'Enter') join();
+  if (e.target.id === 'typed' && e.key === 'Enter' && S.typed.trim()) { const b = app.querySelector('.typebox [data-act=check]'); b && b.click(); }
+});
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const a = b.dataset.act, i = +b.dataset.i;
+  if (a === 'vtest') { sayLines(['Do you know anything about Tuho?', "Yes, I do. It's a Korean game."]); return; }
+  if (a === 'say') { const q = Q(); if (q && q.en) sayLines(q.en.split('\n')); return; }
+  if (a === 'g') { draft.group = i; SFX.pick(); }
+  else if (a === 'join') { join(); return; }
+  else if (a === 'regroup') { draft.group = S.group; draft.name = S.name; S.screen = 'join'; SFX.click(); }
+  else if (a === 'ans') { if (S.phase !== 'q') return; const q = Q(); S.picked = i; grade(i === q.a, q.c[i]); }
+  else if (a === 'tile') { if (S.phase !== 'q') return; S.built.push(+b.dataset.t); SFX.pick(); }
+  else if (a === 'untile') { if (S.phase !== 'q') return; S.built.splice(+b.dataset.j, 1); SFX.click(); }
+  else if (a === 'clear') { S.built = []; SFX.click(); }
+  else if (a === 'check') {
+    if (S.phase !== 'q') return; const q = Q();
+    if (q.w) { const made = S.built.map(ti => q.w[ti]).join(' '); grade(made === q.w.join(' '), made); }
+    else { const t = S.typed.trim(); grade(q.ans.some(x => normWord(x) === normWord(t)), t); }
+  }
+  else if (a === 'tobox') { SFX.whoosh(); S.boxes = makeBoxes(); S.chosen = null; S.phase = 'box'; }
+  else if (a === 'box') {
+    if (S.chosen != null) return; S.chosen = i; SFX.open();
+    if (item(S.boxes[i]).tgt && G.n > 1) S.phase = 'target'; else { S.target = null; setTimeout(openBox, 650); render(); return; }
+  }
+  else if (a === 'target') { S.target = i; SFX.pick(); openBox(); return; }
+  else if (a === 'retry') { openBox(); return; }
+  else if (a === 'next') nextQ();
+  else if (a === 'mute') { muted = !muted; if (!muted) SFX.tick(); }
+  render();
+  if (S && S.screen === 'game' && S.phase === 'q' && qKind(Q()) === 'type') focusTyped();
+});
+
+/* ---------- 시작 ---------- */
+(async function boot() {
+  let st = null;
+  for (let k = 0; k < 6 && !(st && st.ok); k++) {
+    try { st = await api({ action: 'state' }); } catch (e) { app.innerHTML = `<p class="loading">박물관에 연결하는 중이에요… (${k + 1})</p>`; await new Promise(r => setTimeout(r, 1500)); }
+  }
+  if (!st || !st.ok) { app.innerHTML = '<p class="loading">박물관에 연결하지 못했어요. 인터넷을 확인하고 새로 고침 해 주세요.</p>'; return; }
+  takeState(st);
+  await loadSet();
+  const me = loadMe();
+  if (me && me.sid === G.sid && Array.isArray(me.order)) {
+    S = me;
+    if (S.order.some(k => !SET.questions[k])) { S.order = newOrder(); S.qi = 0; }
+    if (S.phase === 'q' && !S.tiles && Q() && Q().w) prepQ();
+    if (S.phase === 'opening') setTimeout(openBox, 50);
+    draft.group = S.group; draft.name = S.name || '';
+  }
+  route(); render();
+  if (DEMO) toast('연습 모드예요. 기록은 이 브라우저에만 저장돼요.', '');
+  SendQueue.flush();
+  setInterval(poll, DEMO ? 2500 : 5000);
+})();
+</script>
+</body>
+</html>
