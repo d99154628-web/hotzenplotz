@@ -15,7 +15,7 @@
 <div class="wrap" id="app"><p class="loading">박물관 불을 켜는 중이에요…</p></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <a class="quicklink" href="teacher.html" target="_blank" rel="noopener">🔑 교사용 화면</a>
-<script src="common.js?v=3"></script>
+<script src="common.js?v=4"></script>
 <script src="demo.js"></script>
 <script>
 /* =====================================================================
@@ -92,6 +92,8 @@ function route() {
     if (S.screen === 'game' && before === 'wait') SFX.bell();
     if (S.screen === 'end') SFX.finale();
   }
+  if (S.screen === 'end') BGM.play('bgm_opening', .4);
+  else if (['wait', 'game', 'done'].includes(S.screen)) BGM.play('bgm_dream_loop', .3);
 }
 
 async function poll() {
@@ -117,7 +119,8 @@ function header() {
   return `<header class="top"><div class="brand"><span class="logo">${boriSVG(S && S.phase === 'wrong' ? 'oops' : S && S.phase === 'right' ? 'happy' : 'idle', 52)}</span><div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
   ${S && S.screen !== 'join' ? `<div class="toolbar">${memoryBar(prog)}${g ? `<span class="chip">${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
     <span class="who"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(G.names[S.group])} · ${esc(S.name)}</span>
-    <button class="iconbtn" data-act="mute" aria-label="소리 켜기/끄기">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
+    <button class="iconbtn" data-act="music" aria-label="배경 음악 켜기/끄기" aria-pressed="${BGM.on}" title="배경 음악">${BGM.on ? '🎵' : '<s>🎵</s>'}</button>
+    <button class="iconbtn" data-act="mute" aria-label="모든 소리 켜기/끄기" title="모든 소리">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
 }
 function board() {
   const mine = S ? S.group : -1, top = Math.max(...G.totals);
@@ -265,7 +268,7 @@ window.onVoices = () => { if (S && S.screen === 'wait') render(); };
 function toast(html, kind) {
   const box = document.getElementById('toasts'), el = document.createElement('div');
   el.className = 'toast ' + (kind || ''); el.innerHTML = html; box.appendChild(el);
-  if (kind === 'down') SFX.bad(); else if (kind === 'up') SFX.saved();
+  if (kind === 'down') SFX.down(); else if (kind === 'up') SFX.saved();
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 600); }, 5200);
   while (box.children.length > 3) box.firstChild.remove();
 }
@@ -352,7 +355,8 @@ app.addEventListener('click', e => {
   else if (a === 'target') { S.target = i; SFX.pick(); openBox(); return; }
   else if (a === 'retry') { openBox(); return; }
   else if (a === 'next') nextQ();
-  else if (a === 'mute') { muted = !muted; if (!muted) SFX.tick(); }
+  else if (a === 'mute') { muted = !muted; if (muted) BGM.stop(); else { SFX.tick(); BGM.resume(); } }
+  else if (a === 'music') { BGM.toggle(); SFX.click(); }
   render();
   if (S && S.screen === 'game' && S.phase === 'q' && qKind(Q()) === 'type') focusTyped();
 });

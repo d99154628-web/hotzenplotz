@@ -225,7 +225,7 @@ function noise(c, { t = 0, dur = .6, vol = .15, from = 600, to = 2400, q = 6 }) 
   g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + dur * .3); g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
   s.connect(bp).connect(g).connect(c.destination); s.start(now); s.stop(now + dur);
 }
-const SFX = {
+const SYN = {
   // 캡슐 머신 손잡이 드르륵 → 캡슐 톡 → 뚜껑 뽕
   open() { const c = ac(); if (!c) return;
     for (let i = 0; i < 6; i++) { noise(c, { t: i * .07, dur: .05, vol: .12, from: 2600, to: 1400, q: 4 }); tone(c, { f: 300 + i * 25, type: 'square', t: i * .07, dur: .04, vol: .03, attack: .002 }); }
@@ -258,3 +258,58 @@ const SFX = {
   // 폐관: 팡파르
   finale() { const c = ac(); if (!c) return; [[523.3, 0], [523.3, .16], [523.3, .32], [659.3, .48], [784, .8], [1046.5, 1.1]].forEach(([f, t], i) => { tone(c, { f, type: 'triangle', t, dur: i === 5 ? 1.6 : .3, vol: .12, attack: .006 }); tone(c, { f: f / 2, type: 'sine', t, dur: i === 5 ? 1.6 : .3, vol: .06 }); }); }
 };
+
+
+/* ---------- 소리 파일 (sfx 폴더) — 파일이 안 열리면 위의 합성 소리로 대신해요 ---------- */
+const SV = 'v=1';
+const SNDCACHE = {};
+function sndFile(name, vol, fallback) {
+  if (muted) return;
+  try {
+    let base = SNDCACHE[name];
+    if (!base) { base = SNDCACHE[name] = new Audio(`sfx/${name}.mp3?${SV}`); base.preload = 'auto'; }
+    const a = base.cloneNode(); a.volume = vol == null ? .7 : vol;
+    const p = a.play(); if (p && p.catch) p.catch(() => { if (fallback) fallback(); });
+  } catch (e) { if (fallback) fallback(); }
+}
+['sfx_click', 'sfx_pick', 'sfx_correct', 'sfx_wrong', 'sfx_crank', 'sfx_pop', 'sfx_good'].forEach(n => { try { const a = new Audio(`sfx/${n}.mp3?${SV}`); a.preload = 'auto'; SNDCACHE[n] = a; } catch (e) {} });
+const SFX = {
+  click() { sndFile('sfx_click', .5, SYN.click); },
+  pick() { sndFile('sfx_pick', .6, SYN.pick); },
+  tick() { sndFile('sfx_click', .35, SYN.tick); },
+  bell() { sndFile('sfx_boot', .7, SYN.bell); },
+  correct() { sndFile('sfx_correct', .75, SYN.correct); },
+  wrong() { sndFile('sfx_wrong', .7, SYN.wrong); },
+  whoosh() { sndFile('sfx_whoosh', .6, SYN.whoosh); },
+  open() { sndFile('sfx_crank', .7, SYN.open); setTimeout(() => sndFile('sfx_pop', .75), 650); },
+  good() { sndFile('sfx_good', .75, SYN.good); },
+  bad() { sndFile('sfx_bad', .7, SYN.bad); },
+  fate() { sndFile('sfx_fate', .7, SYN.fate); },
+  saved() { sndFile('sfx_notice_up', .6, SYN.saved); },
+  down() { sndFile('sfx_notice_down', .6, SYN.bad); },
+  finale() { sndFile('sfx_finale', .75, SYN.finale); }
+};
+
+/* ---------- 배경 음악 ---------- */
+const BGM = {
+  a: null, cur: null, want: null, vol: .35,
+  on: (() => { try { return localStorage.getItem('bori-museum.music') !== 'off'; } catch (e) { return true; } })(),
+  play(name, vol) {
+    this.want = name; if (vol != null) this.vol = vol;
+    if (!this.on || muted) return;
+    if (this.cur === name && this.a && !this.a.paused) return;
+    this.stop(true);
+    try {
+      const a = new Audio(`sfx/${name}.mp3?${SV}`); a.loop = true; a.volume = 0;
+      this.a = a; this.cur = name;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => { if (this.a === a) { this.a = null; this.cur = null; } });
+      this.fade(a, this.vol, 1500);
+    } catch (e) {}
+  },
+  fade(a, to, ms) { const from = a.volume, t0 = performance.now(); (function step(now) { const k = Math.min((now - t0) / ms, 1); try { a.volume = Math.max(0, Math.min(1, from + (to - from) * k)); } catch (e) {} if (k < 1) requestAnimationFrame(step); else if (to === 0) a.pause(); })(t0); },
+  stop(quick) { if (this.a) { const a = this.a; this.a = null; this.cur = null; if (quick) a.pause(); else this.fade(a, 0, 800); } },
+  resume() { if (this.want && (!this.a || this.a.paused)) this.play(this.want); },
+  toggle() { this.on = !this.on; try { localStorage.setItem('bori-museum.music', this.on ? 'on' : 'off'); } catch (e) {} if (this.on) this.resume(); else this.stop(); }
+};
+document.addEventListener('pointerdown', () => BGM.resume(), true);

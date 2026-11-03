@@ -13,7 +13,7 @@
 <div class="sky" aria-hidden="true"><span class="skyimg"></span><img class="cloud c1" src="img/cloud_1.webp?v=3" alt=""><img class="cloud c2" src="img/cloud_2.webp?v=3" alt=""><span class="motes"></span></div>
 <div class="wrap" id="app"><p class="loading">불러오는 중이에요…</p></div>
 <a class="quicklink" href="./" target="_blank" rel="noopener">🎒 학생 화면</a>
-<script src="common.js?v=3"></script>
+<script src="common.js?v=4"></script>
 <script src="demo.js"></script>
 <script>
 /* =====================================================================
@@ -145,14 +145,14 @@ function bigView() {
 function render() {
   if (view === 'login') { app.innerHTML = loginView(); setTimeout(() => { const p = document.getElementById('pw'); p && p.focus(); }, 30); return; }
   if (!D) { app.innerHTML = '<p class="loading">불러오는 중이에요…</p>'; return; }
-  if (view === 'big') { app.innerHTML = bigView(); countUp(app); return; }
+  if (view === 'big') { app.innerHTML = bigView(); countUp(app); if (D.open === 'closed') BGM.play('bgm_opening', .5); else BGM.stop(); return; }
   if (view === 'sets' || view === 'edit') { app.innerHTML = topBar() + setsView(); return; }
   app.innerHTML = topBar() + `<div id="ctl">${controls()}</div><div id="mon">${monitor()}</div>`;
   countUp(app);
 }
 /* 주기적으로 바뀌는 부분만 다시 그림 (입력 중인 칸은 그대로 둠) */
 function paint() {
-  if (view === 'big') { app.innerHTML = bigView(); countUp(app); return; }
+  if (view === 'big') { app.innerHTML = bigView(); countUp(app); if (D.open === 'closed') BGM.play('bgm_opening', .5); else BGM.stop(); return; }
   if (view !== 'main') return;
   const mon = document.getElementById('mon'), ctl = document.getElementById('ctl');
   if (!mon) return render();
@@ -366,7 +366,7 @@ app.addEventListener('click', async e => {
     render();
   }
   else if (a === 'big') { view = 'big'; render(); document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); }
-  else if (a === 'back') { view = 'main'; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); }
+  else if (a === 'back') { BGM.stop(); view = 'main'; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); }
 });
 
 /* ---------- 시작 ---------- */
