@@ -3,7 +3,7 @@
  *  6학년 영어 Lesson 11 (Do You Know Anything About Tuho?) 3·5차시
  *  API_URL: Apps Script 웹 앱 주소(…/exec). 비워 두거나 주소 끝에 ?demo 를 붙이면 서버 없이 도는 연습 모드.
  * ===================================================================== */
-const API_URL = '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzqRZ6kpUCmClQfYq3sUZKmaT4xjN_LQ4ageQkNlNtDVfvRPiO6R6um09ssOfHd8PYF/exec';
 const DEMO = !API_URL || /[?&]demo\b/.test(location.search);
 const LS_VOICE = 'bori-museum.voice';
 const NS = DEMO ? 'bori-museum-demo.' : 'bori-museum.';
