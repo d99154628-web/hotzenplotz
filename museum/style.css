@@ -387,3 +387,120 @@ button:disabled{cursor:default}
 .bulk textarea{width:100%;font:inherit;padding:8px;border:2px solid var(--line);border-radius:10px}
 .fmt{display:block;background:var(--wall);padding:6px 10px;border-radius:8px;font-size:.85rem}
 .savebar{position:sticky;bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 14px}
+
+
+/* ================= 몽환 레이어: 떠 있는 하늘 섬 (Lesson 11 리뉴얼) ================= */
+:root{
+  --wall:#f6efe9; --card:rgba(255,253,250,.74); --line:rgba(255,255,255,.75);
+  --ink:#2b4a55; --ink-2:#5f7b84; --mint:#7fd3c6; --mint-d:#3a9c8f; --mint-l:#e1f6f2;
+  --coral:#f2917d; --coral-d:#d8705c; --coral-l:#fde8e2; --lav:#b9a7e3; --lav-l:#eee8fb; --peach:#ffd8bf;
+  --glass-shadow:0 18px 50px rgba(83,96,140,.16),0 2px 0 rgba(255,255,255,.9) inset;
+}
+body{background:#cfe9e4;background-image:none}
+.sky{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.skyimg{position:absolute;inset:-4%;background:url(img/bg_sky.webp?v=3) center/cover no-repeat;animation:skybreathe 26s ease-in-out infinite alternate;filter:saturate(1.05)}
+@media (max-aspect-ratio:3/4){.skyimg{background-image:url(img/bg_sky_tall.webp?v=3)}}
+@keyframes skybreathe{0%{transform:scale(1) translateY(0);filter:hue-rotate(0) saturate(1.05)}100%{transform:scale(1.06) translateY(-1.5%);filter:hue-rotate(-12deg) saturate(1.15)}}
+.cloud{position:absolute;opacity:.85;filter:drop-shadow(0 12px 18px rgba(120,110,170,.18));will-change:transform}
+.cloud.c1{width:min(34vw,420px);top:8%;left:-40%;animation:drift 95s linear infinite}
+.cloud.c2{width:min(22vw,260px);top:46%;left:-30%;animation:drift 70s linear infinite;animation-delay:-30s;opacity:.7}
+.cloud.c3{width:min(16vw,200px);top:74%;left:-25%;animation:drift 120s linear infinite;animation-delay:-70s;opacity:.55}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(170vw)}}
+.motes{position:absolute;inset:0;background-image:
+  radial-gradient(2px 2px at 12% 30%,rgba(255,255,255,.95),transparent 60%),radial-gradient(1.5px 1.5px at 28% 70%,rgba(255,245,210,.9),transparent 60%),
+  radial-gradient(2px 2px at 46% 18%,rgba(255,255,255,.85),transparent 60%),radial-gradient(1.5px 1.5px at 63% 56%,rgba(255,255,255,.9),transparent 60%),
+  radial-gradient(2.5px 2.5px at 78% 26%,rgba(255,240,220,.9),transparent 60%),radial-gradient(1.5px 1.5px at 90% 80%,rgba(255,255,255,.85),transparent 60%),
+  radial-gradient(2px 2px at 6% 86%,rgba(255,255,255,.8),transparent 60%),radial-gradient(1.5px 1.5px at 54% 92%,rgba(255,250,230,.85),transparent 60%);
+  background-size:100% 100%;animation:motes 18s ease-in-out infinite alternate}
+@keyframes motes{0%{transform:translateY(0);opacity:.5}50%{opacity:1}100%{transform:translateY(-40px);opacity:.6}}
+.wrap{position:relative;z-index:1}
+.quicklink,.toasts{z-index:20}
+
+/* 유리 카드 */
+.card,.tpanel,.gcard,.placard,.team,.news,.bigboard{background:var(--card);border:1.5px solid var(--line);box-shadow:var(--glass-shadow);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2)}
+.card{border-radius:28px}
+.team{border-top:5px solid var(--gc)}
+.team.mine{box-shadow:0 0 0 3px var(--gc),var(--glass-shadow)}
+.news{background:rgba(255,246,232,.72)}
+.membar{background:rgba(255,255,255,.7);border-color:var(--line)}
+.chip{background:var(--ink)}
+.iconbtn,.quicklink{background:rgba(255,255,255,.75);border-color:var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.brand h1{text-shadow:0 2px 0 rgba(255,255,255,.7)}
+.logo img.bori{width:52px;height:auto}
+.btn{background:linear-gradient(180deg,#f7a693,var(--coral));box-shadow:0 4px 0 var(--coral-d),0 10px 20px rgba(216,112,92,.25)}
+.choice{background:rgba(255,255,255,.82);border-color:rgba(214,226,232,.9)}
+.placard{border-left:6px solid var(--mint);border-radius:24px}
+.placard .en{background:rgba(238,246,247,.85)}
+
+/* 보리: 숨 쉬듯 둥실 */
+img.bori{display:block;height:auto;filter:drop-shadow(0 10px 12px rgba(60,70,110,.22));animation:float 3.6s ease-in-out infinite;transform-origin:50% 90%}
+img.bori.happy{animation:hop .7s ease-out,float 3.6s ease-in-out .7s infinite}
+img.bori.oops{animation:shake .5s,float 3.6s ease-in-out .5s infinite}
+img.bori.sleep{animation:float 5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.015)}}
+@keyframes hop{30%{transform:translateY(-16px) rotate(-3deg)}60%{transform:translateY(0)}80%{transform:translateY(-4px)}}
+.guide img.bori{width:92px}
+.bubble{background:rgba(43,74,85,.92);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.bubble::before{border-right-color:rgba(43,74,85,.92)}
+
+/* 첫 화면: 떠 있는 박물관 */
+.hero{height:auto;aspect-ratio:4/3;max-height:440px;width:100%;border-radius:22px;background:#bfe3df;position:relative;overflow:hidden}
+.heroimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 38%;animation:island 9s ease-in-out infinite;transform-origin:50% 60%}
+@keyframes island{0%,100%{transform:translateY(0) scale(1.04)}50%{transform:translateY(-10px) scale(1.06)}}
+.hcloud{position:absolute;opacity:.9;filter:drop-shadow(0 8px 10px rgba(120,110,170,.2))}
+.hcloud.h1{width:28%;bottom:8%;left:-30%;animation:hdrift 38s linear infinite}
+.hcloud.h2{width:20%;top:12%;left:-25%;animation:hdrift 52s linear infinite;animation-delay:-20s}
+@keyframes hdrift{to{transform:translateX(560%)}}
+.herobori{position:absolute;right:5%;bottom:4%;left:auto;transform:none}
+.herobori img.bori{width:clamp(70px,14vw,110px)}
+
+/* 대기 화면 */
+.waitimg{width:min(100%,300px);border-radius:24px;box-shadow:0 14px 30px rgba(83,96,140,.18);animation:island 7s ease-in-out infinite}
+
+/* 전시 진열대: 받침 위에 둥실 */
+.vitrine{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,.12));border:1.5px solid var(--line);border-radius:26px;min-height:270px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:18px 10px 14px;overflow:visible;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.vitrine::after{display:none}
+.vitrine .spot{background:radial-gradient(ellipse 50% 60% at 50% 30%,rgba(255,250,225,.7),transparent 70%)}
+.vitrine img.ex{position:relative;z-index:2;width:72%;max-height:170px;object-fit:contain;margin:0 0 -26px;filter:drop-shadow(0 18px 14px rgba(60,70,110,.25));animation:hover 4.2s ease-in-out infinite}
+.vitrine img.ped{position:relative;z-index:1;width:58%;max-width:190px;animation:hover 4.2s ease-in-out .35s infinite;opacity:.95}
+@keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.vitrine figcaption{color:var(--ink-2);background:rgba(255,255,255,.7)}
+
+/* 캡슐 머신 */
+.machine{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr);gap:18px;align-items:center;width:min(100%,640px)}
+.cmimg{width:100%;filter:drop-shadow(0 16px 18px rgba(60,70,110,.25));animation:island 6s ease-in-out infinite}
+.machinecard:has(.cap.pick) .cmimg{animation:shake .6s,island 6s ease-in-out .6s infinite}
+.dome{border-radius:26px;background:rgba(255,255,255,.45);border:1.5px solid var(--line);box-shadow:inset 0 0 40px rgba(255,255,255,.6)}
+.ball{animation:bobcap 3.2s ease-in-out infinite;animation-delay:var(--d)}
+@keyframes bobcap{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-6px) rotate(4deg)}}
+.reveal{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.reveal.g{background:rgba(224,246,238,.85)}.reveal.b{background:rgba(253,230,224,.85)}.reveal.n{background:rgba(238,232,251,.85)}
+.rart{background:radial-gradient(circle,#fff 55%,rgba(255,255,255,.5));animation:hover 3.6s ease-in-out infinite}
+.rart img{filter:drop-shadow(0 8px 8px rgba(60,70,110,.2))}
+.peek img{filter:drop-shadow(0 3px 3px rgba(0,0,0,.15))}
+.cat{background:rgba(224,246,238,.7)}.cat.b{background:rgba(253,230,224,.7)}.cat.n{background:rgba(238,232,251,.7)}
+
+/* 끝 화면: 개관 축하 */
+.endart{position:relative;width:100%;border-radius:24px;overflow:hidden;aspect-ratio:16/9;max-height:360px}
+.endimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:island 10s ease-in-out infinite}
+.flag{position:absolute;width:18%;transform-origin:0 50%;animation:wave 2.6s ease-in-out infinite;filter:drop-shadow(0 4px 6px rgba(0,0,0,.12))}
+.flag.f1{top:6%;left:6%}.flag.f2{top:12%;right:4%;width:14%;transform:scaleX(-1);animation-delay:-1.2s}
+@keyframes wave{0%,100%{rotate:-4deg;scale:1 1}50%{rotate:5deg;scale:1.04 .92}}
+.endart .ribbon{position:absolute;left:50%;bottom:8%;translate:-50% 0;transform:rotate(-2deg)}
+.endbori{position:absolute;right:4%;bottom:2%}
+.endbori img.bori{width:clamp(64px,12vw,96px)}
+.rank{background:rgba(255,255,255,.7)}
+.rank.first{background:rgba(255,239,205,.9)}
+
+/* 교사 화면 */
+.states button,.count-row button,.names input,.sel{background:rgba(255,255,255,.8)}
+.bars .bt{background:rgba(255,255,255,.55)}
+.bbhead img.bori{width:110px}
+
+@media (max-width:720px){
+  .machine{grid-template-columns:minmax(0,1fr)}
+  .cmimg{width:120px;margin:0 auto}
+  .vitrine{min-height:210px}.vitrine img.ex{max-height:120px}
+  .guide img.bori{width:68px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before{animation:none!important}}

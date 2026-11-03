@@ -13,7 +13,7 @@ const lsGet = k => { try { return localStorage.getItem(NS + k); } catch (e) { re
 const lsSet = (k, v) => { try { localStorage.setItem(NS + k, v); } catch (e) {} };
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const IMG = k => `img/${k}.webp`;
+const IMG = k => `img/${k}.webp?v=3`;
 
 /* ---------- 모둠 색 ---------- */
 const TEAMC = ['#e0573e', '#2f7fd0', '#1f9e7a', '#8a5cd0', '#e0912a', '#b9a01c', '#d0508f', '#1e9db0'];
@@ -50,6 +50,7 @@ const SendQueue = {
 };
 
 /* ---------- 전시품 ---------- */
+const EXIMG = k => IMG('ex_' + k);
 const EXHIBIT = {
   tuho: { name: 'Tuho', kr: '투호', it: "It's a Korean game." },
   yakgwa: { name: 'yakgwa', kr: '약과', it: "It's a Korean cookie." },
@@ -138,20 +139,20 @@ const qAnswer = Q => Q.w ? Q.w.join(' ') : Q.ans ? Q.ans[0] : Q.c[Q.a];
 /* ---------- 기념품 캡슐 ---------- */
 // kind: g 행운 / b 고장 / n 깜짝 , tgt: 다른 모둠을 골라야 함 , pic: 전시품 그림(없으면 ic 이모지)
 const ITEMS = [
-  { id: 'p10', kind: 'g', ic: '🍯', pic: 'yakgwa', name: '꿀 약과', fx: '우리 모둠 +10점', en: "It's very tasty!", w: 7 },
-  { id: 'p20', kind: 'g', ic: '🧣', pic: 'sari', name: '반짝 사리 스카프', fx: '우리 모둠 +20점', en: "They're very beautiful!", w: 5 },
-  { id: 'p30', kind: 'g', ic: '🏹', pic: 'arrow_gold', name: '황금 투호 화살', fx: '우리 모둠 +30점', en: 'Bullseye! What a fun game!', w: 2 },
-  { id: 'x2', kind: 'g', ic: '🤖', name: '쌍둥이 미니봇', fx: '내가 모은 점수만큼 한 번 더 (최대 +30)', en: "We're very clever!", w: 1 },
-  { id: 'steal', kind: 'g', ic: '🪃', pic: 'boomerang', name: '돌아오는 부메랑', fx: '다른 모둠 10점 가져오기', en: 'It always comes back!', w: 2, tgt: 1 },
-  { id: 'shield', kind: 'g', ic: '☂️', pic: 'nonla', name: '우산 논라', fx: '우리 모둠 손해 한 번 막기', en: "It's like an umbrella!", w: 2 },
-  { id: 'party', kind: 'g', ic: '🥁', pic: 'djembe', name: '젬베 공연', fx: '모든 모둠 +10점', en: 'Hit it with your hands!', w: 1 },
-  { id: 'pass', kind: 'g', ic: '🦠', name: '고장 바이러스', fx: '다른 모둠 −20점', en: 'Beep... error... error!', w: 1, tgt: 1 },
-  { id: 'crown', kind: 'n', ic: '🏅', name: '관장님 배지', fx: '1등 모둠에게서 10점 가져오기', en: 'You did a good job!', w: 1 },
-  { id: 'topHit', kind: 'n', ic: '🔌', name: '정전 스위치', fx: '1등 모둠 −20점', en: 'Lights out!', w: 1 },
-  { id: 'zero', kind: 'n', ic: '🫧', name: '빈 캡슐', fx: '꽝', en: 'I have no idea!', w: 3 },
-  { id: 'm10', kind: 'b', ic: '🪫', name: '배터리 방전', fx: '우리 모둠 −10점', en: 'Low battery...', w: 3 },
-  { id: 'm20', kind: 'b', ic: '🏺', name: '깨진 항아리', fx: '우리 모둠 −20점', en: 'Oops! Crash!', w: 1 },
-  { id: 'ghost', kind: 'b', ic: '🧹', name: '길 잃은 로봇 청소기', fx: '우리 모둠 10점을 다른 모둠에 줌', en: 'Beep! Where am I?', w: 2, tgt: 1 }
+  { id: 'p10', pic: 'ex_yakgwa', kind: 'g', ic: '🍯', name: '꿀 약과', fx: '우리 모둠 +10점', en: "It's very tasty!", w: 7 },
+  { id: 'p20', pic: 'ex_sari', kind: 'g', ic: '🧣', name: '반짝 사리 스카프', fx: '우리 모둠 +20점', en: "They're very beautiful!", w: 5 },
+  { id: 'p30', pic: 'item_arrow_gold', kind: 'g', ic: '🏹', name: '황금 투호 화살', fx: '우리 모둠 +30점', en: 'Bullseye! What a fun game!', w: 2 },
+  { id: 'x2', pic: 'item_minibot', kind: 'g', ic: '🤖', name: '쌍둥이 미니봇', fx: '내가 모은 점수만큼 한 번 더 (최대 +30)', en: "We're very clever!", w: 1 },
+  { id: 'steal', pic: 'ex_boomerang', kind: 'g', ic: '🪃', name: '돌아오는 부메랑', fx: '다른 모둠 10점 가져오기', en: 'It always comes back!', w: 2, tgt: 1 },
+  { id: 'shield', pic: 'ex_nonla', kind: 'g', ic: '☂️', name: '우산 논라', fx: '우리 모둠 손해 한 번 막기', en: "It's like an umbrella!", w: 2 },
+  { id: 'party', pic: 'ex_djembe', kind: 'g', ic: '🥁', name: '젬베 공연', fx: '모든 모둠 +10점', en: 'Hit it with your hands!', w: 1 },
+  { id: 'pass', pic: 'item_virus', kind: 'g', ic: '🦠', name: '고장 바이러스', fx: '다른 모둠 −20점', en: 'Beep... error... error!', w: 1, tgt: 1 },
+  { id: 'crown', pic: 'item_badge', kind: 'n', ic: '🏅', name: '관장님 배지', fx: '1등 모둠에게서 10점 가져오기', en: 'You did a good job!', w: 1 },
+  { id: 'topHit', pic: 'item_switch', kind: 'n', ic: '🔌', name: '정전 스위치', fx: '1등 모둠 −20점', en: 'Lights out!', w: 1 },
+  { id: 'zero', pic: 'item_empty', kind: 'n', ic: '🫧', name: '빈 캡슐', fx: '꽝', en: 'I have no idea!', w: 3 },
+  { id: 'm10', pic: 'item_battery', kind: 'b', ic: '🪫', name: '배터리 방전', fx: '우리 모둠 −10점', en: 'Low battery...', w: 3 },
+  { id: 'm20', pic: 'item_jar', kind: 'b', ic: '🏺', name: '깨진 항아리', fx: '우리 모둠 −20점', en: 'Oops! Crash!', w: 1 },
+  { id: 'ghost', pic: 'item_vacuum', kind: 'b', ic: '🧹', name: '길 잃은 로봇 청소기', fx: '우리 모둠 10점을 다른 모둠에 줌', en: 'Beep! Where am I?', w: 2, tgt: 1 }
 ];
 const item = id => ITEMS.find(x => x.id === id);
 const KINDNAME = { g: '행운', b: '고장', n: '깜짝' };
@@ -167,25 +168,8 @@ const CAPC = [['#ff7a59', '#ffd2c4'], ['#3fb6a8', '#c9f0ea'], ['#f5b82e', '#fde9
 
 /* ---------- 도우미 로봇 보리 ---------- */
 function boriSVG(mood, size) {
-  mood = mood || 'idle';
-  const eyes = {
-    idle: '<rect x="37" y="45" width="7" height="11" rx="3.5" fill="#7ff5e3"/><rect x="56" y="45" width="7" height="11" rx="3.5" fill="#7ff5e3"/>',
-    happy: '<path d="M35 52 q5 -7 10 0" stroke="#7ff5e3" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M55 52 q5 -7 10 0" stroke="#7ff5e3" stroke-width="3.6" fill="none" stroke-linecap="round"/>',
-    oops: '<path d="M36 46 l8 8 M44 46 l-8 8 M56 46 l8 8 M64 46 l-8 8" stroke="#ffb3a1" stroke-width="3.4" stroke-linecap="round"/>',
-    sleep: '<path d="M35 51 h10 M55 51 h10" stroke="#7ff5e3" stroke-width="3.4" stroke-linecap="round" opacity=".55"/>'
-  }[mood];
-  const mouth = { idle: '<path d="M45 62 q5 4 10 0" stroke="#7ff5e3" stroke-width="2.6" fill="none" stroke-linecap="round"/>', happy: '<path d="M43 60 q7 9 14 0 z" fill="#7ff5e3"/>', oops: '<path d="M44 64 q6 -4 12 0" stroke="#ffb3a1" stroke-width="2.6" fill="none" stroke-linecap="round"/>', sleep: '<circle cx="50" cy="63" r="2" fill="#7ff5e3" opacity=".5"/>' }[mood];
-  const lamp = mood === 'oops' ? '#ff7a59' : mood === 'sleep' ? '#9aa9ad' : '#ffcf4a';
-  return `<svg class="bori ${mood}" viewBox="0 0 100 112" ${size ? `width="${size}" height="${size * 1.12}"` : ''} role="img" aria-label="도우미 로봇 보리">
-   <line x1="50" y1="8" x2="50" y2="22" stroke="#24525a" stroke-width="3"/><circle class="lamp" cx="50" cy="8" r="5.5" fill="${lamp}" stroke="#24525a" stroke-width="2"/>
-   <rect x="8" y="40" width="10" height="22" rx="5" fill="#ff8f6b" stroke="#24525a" stroke-width="2.4"/><rect x="82" y="40" width="10" height="22" rx="5" fill="#ff8f6b" stroke="#24525a" stroke-width="2.4"/>
-   <rect x="15" y="22" width="70" height="58" rx="22" fill="#f4fbf9" stroke="#24525a" stroke-width="3"/>
-   <rect x="25" y="34" width="50" height="38" rx="14" fill="#1d3f46"/>
-   ${eyes}${mouth}
-   <circle cx="30" cy="66" r="3.2" fill="#ff9e85" opacity=".55"/><circle cx="70" cy="66" r="3.2" fill="#ff9e85" opacity=".55"/>
-   <rect x="30" y="80" width="40" height="26" rx="10" fill="#5cc7b8" stroke="#24525a" stroke-width="3"/>
-   <rect x="42" y="87" width="16" height="10" rx="3" fill="#f4fbf9" stroke="#24525a" stroke-width="2"/><circle cx="50" cy="92" r="2.4" fill="#ff7a59"/>
-  </svg>`;
+  mood = ['idle', 'happy', 'oops', 'sleep'].includes(mood) ? mood : 'idle';
+  return `<img class="bori ${mood}" src="${IMG('bori_' + mood)}" alt="도우미 로봇 보리" ${size ? `width="${size}"` : ''} draggable="false">`;
 }
 /* 기억 복구 막대 (진행 정도) */
 function memoryBar(prog, label) {

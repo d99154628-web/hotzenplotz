@@ -8,13 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&display=swap">
 <style>:root{color-scheme:light}body{margin:0;font:15px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
+<div class="sky" aria-hidden="true"><span class="skyimg"></span><img class="cloud c1" src="img/cloud_1.webp?v=3" alt=""><img class="cloud c2" src="img/cloud_2.webp?v=3" alt=""><img class="cloud c3" src="img/cloud_1.webp?v=3" alt=""><span class="motes"></span></div>
 <div class="wrap" id="app"><p class="loading">박물관 불을 켜는 중이에요…</p></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <a class="quicklink" href="teacher.html" target="_blank" rel="noopener">🔑 교사용 화면</a>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=3"></script>
 <script src="demo.js"></script>
 <script>
 /* =====================================================================
@@ -133,9 +134,9 @@ function feedLine() {
   return `<section class="news" aria-label="박물관 소식"><span class="nlab">📢 박물관 소식</span>${f.map(x => `<span class="nitem"><span class="dot" style="background:${TEAMC[x.g] || '#999'}"></span>${esc(x.who)} · ${esc(x.msg)}</span>`).join('')}</section>`;
 }
 function heroArt() {
-  const items = ['tuho', 'nonla', 'djembe', 'sari', 'boomerang', 'yakgwa'];
-  return `<div class="hero" aria-hidden="true"><div class="hall">${items.map((k, i) => `<span class="case c${i}"><img src="${IMG(k)}" alt=""><i></i></span>`).join('')}</div>
-   <div class="herobori">${boriSVG('sleep', 96)}<span class="zz">Z z</span></div><div class="floor"></div></div>`;
+  return `<div class="hero" aria-hidden="true"><img class="heroimg" src="${IMG('hero_museum')}" alt="">
+   <img class="hcloud h1" src="${IMG('cloud_2')}" alt=""><img class="hcloud h2" src="${IMG('cloud_1')}" alt="">
+   <div class="herobori">${boriSVG('sleep', 110)}</div></div>`;
 }
 function joinScreen() {
   const can = draft.group != null && draft.name.trim();
@@ -157,7 +158,7 @@ function rulesMini() {
   return `<ol class="rules"><li><b>보리의 질문</b>에 답해요. 고르기·낱말 쓰기·문장 만들기가 나와요.</li><li>맞히면 <b>캡슐 하나</b>를 골라 열어요. 점수는 <b>우리 모둠</b>에 더해져요.</li><li>틀린 문제는 몇 문제 뒤에 <b>다시</b> 나와요. 그때 꼭 맞혀요!</li></ol>`;
 }
 function waitScreen() {
-  return `${header()}${board()}<section class="card waitcard">${boriSVG('sleep', 110)}
+  return `${header()}${board()}<section class="card waitcard"><img class="waitimg" src="${IMG('wait_charging')}" alt="충전 중인 보리">
    <h2>보리가 아직 충전 중이에요</h2><p>${esc(G.names[S.group])} 친구들이 모이고 있어요. 선생님이 박물관 문을 열면 바로 시작돼요.</p>
    ${rulesMini()}
    ${S.qi === 0 ? `<button class="btn ghost" data-act="regroup">모둠 다시 고르기</button>` : ''}
@@ -201,7 +202,7 @@ function gallery() {
   let v = '';
   if (S.phase === 'right') v = `<div class="verdict ok"><span>정답이에요! 캡슐 머신을 돌릴 수 있어요.</span><button class="btn" data-act="tobox">🎁 캡슐 머신으로</button></div>`;
   if (S.phase === 'wrong') v = `<div class="verdict no"><span>아쉬워요. 정답은 <b class="ans">${esc(qAnswer(q))}</b>${kind === 'choice' ? ` (${q.a + 1}번)` : ''}<small>이 문제는 조금 뒤에 다시 나올 수 있어요.</small></span><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button></div>`;
-  const ex = q.img ? `<figure class="vitrine"><span class="spot"></span><img src="${IMG(q.img)}" alt="${esc(EXHIBIT[q.img] ? EXHIBIT[q.img].kr : '')}"><figcaption>No. ${String(S.order[S.qi] + 1).padStart(2, '0')}</figcaption></figure>` : '';
+  const ex = q.img ? `<figure class="vitrine"><span class="spot"></span><img class="ex" src="${EXIMG(q.img)}" alt="${esc(EXHIBIT[q.img] ? EXHIBIT[q.img].kr : '')}"><img class="ped" src="${IMG('pedestal')}" alt=""><figcaption>No. ${String(S.order[S.qi] + 1).padStart(2, '0')}</figcaption></figure>` : '';
   return `<section class="gallery ${S.phase}" aria-live="polite">
    <div class="guide">${boriSVG(S.phase === 'right' ? 'happy' : S.phase === 'wrong' ? 'oops' : 'idle', 92)}
     <div class="bubble"><div class="qhead"><span class="tag">${esc(q.t || '문제')}</span><span class="turn"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(S.name)}</span></div><p class="say">${boriLine()}</p></div></div>
@@ -221,12 +222,12 @@ function machine() {
     bottom = `<p class="result">${esc(S.msg)}</p><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button>`;
   } else bottom = `<p class="pickhint">마음에 드는 캡슐을 하나 눌러 보세요.</p>`;
   return `<section class="card machinecard"><h2>${shortName()}, 캡슐을 하나 골라요!</h2>
-   <div class="machine"><div class="dome">${S.boxes.map((id, i) => {
+   <div class="machine"><img class="cmimg" src="${IMG('capsule_machine')}" alt="캡슐 머신"><div class="dome">${S.boxes.map((id, i) => {
     const x = item(id), me = S.chosen === i, [c1, c2] = CAPC[i];
     return `<button class="cap ${opened ? (me ? 'pick ' + x.kind : 'dim') : ''}" data-act="box" data-i="${i}" ${opened ? 'disabled' : ''} aria-label="${i + 1}번 캡슐" style="--c1:${c1};--c2:${c2};--d:${i * .12}s">
       <span class="ball"><span class="top"></span><span class="bot"></span><span class="no">${i + 1}</span></span>
       ${opened && !me ? `<span class="peek ${x.kind}">${itemArt(x)}<b>${x.name}</b></span>` : ''}</button>`;
-   }).join('')}</div><div class="base"><span class="slot"></span><span class="knob"></span></div></div>
+   }).join('')}</div></div>
    ${opened ? reveal(bottom) : bottom}</section>`;
 }
 function reveal(bottom) {
@@ -238,12 +239,12 @@ function myStats() {
   return `<div class="mystats"><div><span>맞힌 문제</span><b>${S.right} / ${Math.min(S.qi, limit())}</b></div><div><span>우리 모둠에 보탠 점수</span><b>${S.myPts > 0 ? '+' : ''}${S.myPts}</b></div><div><span>연 캡슐</span><b>${S.opened}</b></div></div>`;
 }
 function doneScreen() {
-  return `${header()}${board()}${feedLine()}<section class="card waitcard">${boriSVG('happy', 110)}
+  return `${header()}${board()}${feedLine()}<section class="card waitcard">${boriSVG('happy', 120)}
    <h2>보리의 기억을 모두 되찾았어요!</h2><p>선생님이 박물관 문을 닫을 때까지 모둠 점수판을 지켜보세요. 친구들의 캡슐이 아직 열리고 있어요.</p>${myStats()}</section>`;
 }
 function endScreen() {
   const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s;
-  return `${header()}<section class="card end"><div class="ribbon">🎉 Grand Opening! 🎉</div>${boriSVG('happy', 100)}<h2>박물관이 무사히 문을 열었어요</h2><p>보리가 모든 전시품을 소개할 수 있게 되었어요. 오늘의 최고 큐레이터 모둠은?</p>
+  return `${header()}<section class="card end"><div class="endart"><img class="endimg" src="${IMG('end_opening')}" alt="개관 축하 중인 하늘 박물관"><img class="flag f1" src="${IMG('flag')}" alt=""><img class="flag f2" src="${IMG('flag')}" alt=""><div class="ribbon">Grand Opening!</div><div class="endbori">${boriSVG('happy', 96)}</div></div><h2>박물관이 무사히 문을 열었어요</h2><p>보리가 모든 전시품을 소개할 수 있게 되었어요. 오늘의 최고 큐레이터 모둠은?</p>
    <div class="podium">${r.map((x, k) => `<div class="rank ${x.s === top ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}" style="--gc:${TEAMC[x.i]}"><span>${x.s === top ? '🏆' : k + 1 + '위'} · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
    ${myStats()}</section>`;
 }
