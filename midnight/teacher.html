@@ -43,6 +43,37 @@ function take(r) {
   const old = D; D = r;
   D._d = {};
   if (old && old.sid === r.sid) r.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) D._d[i] = d; });
+  if (!old || old.sid !== r.sid) tieNote = '';
+  settleTie();
+}
+
+/* ---------- 1등은 한 모둠만 ----------
+ * 점수가 같으면 ① 모둠 정답 수가 많은 쪽 ② 정답률이 높은 쪽 ③ 그래도 같으면 제비뽑기 순으로 순위를 정해요.
+ * 가게 문을 닫았을 때(자정) 1등이 동점이면, 위 순서로 이긴 모둠에 1점을 더해 1등을 한 모둠으로 확정해요. */
+let tieNote = '', breaking = false;
+function teamRight(g) { return D.students.filter(s => s.g === g).reduce((a, s) => a + s.right, 0); }
+function order() {
+  return D.totals.map((s, i) => ({ s, i, r: teamRight(i), acc: groupStats(i).acc || 0 }))
+    .sort((a, b) => b.s - a.s || b.r - a.r || b.acc - a.acc || a.i - b.i);
+}
+async function settleTie() {
+  if (breaking || !D || D.open !== 'closed' || !D.students) return;
+  const o = order();
+  if (o.length < 2 || o[0].s <= 0 || o[1].s !== o[0].s) return;
+  const tied = o.filter(x => x.s === o[0].s);
+  let w = tied[0], why;
+  if (tied[1].r !== w.r) why = `정답을 더 많이 맞혀서(${w.r}개)`;
+  else if (tied[1].acc !== w.acc) why = '정답률이 더 높아서';
+  else { const same = tied.filter(x => x.r === w.r && x.acc === w.acc); w = same[Math.floor(Math.random() * same.length)]; why = '제비뽑기로'; }
+  breaking = true;
+  try {
+    const r = await call({ action: 'adjust', group: w.i, delta: 1 });
+    if (r && r.ok) {
+      tieNote = `${tied.map(x => D.names[x.i]).join(' · ')} 동점! ${D.names[w.i]}이(가) ${why} +1점, 1등이 되었어요.`;
+      saving = tieNote; breaking = false; take(r); paint(); return;
+    }
+  } catch (e) {}
+  breaking = false;
 }
 
 /* ---------- 계산 ---------- */
@@ -95,7 +126,7 @@ function controls() {
 }
 function groupCard(g) {
   const st = groupStats(g), L = lim(), sc = D.totals[g], d = D._d[g] || 0;
-  const rank = D.totals.slice().sort((a, b) => b - a).indexOf(sc) + 1;
+  const rank = order().findIndex(x => x.i === g) + 1;
   const rows = st.m.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true })).map(s => {
     const qi = Math.min(s.qi, L), done = s.done || s.qi >= L, idle = !done && D.open === 'open' && D.now - s.updated > 120000;
     const acc = qi ? Math.round(s.right / qi * 100) : null;
@@ -133,8 +164,8 @@ function monitor() {
    </div></section>`;
 }
 function bigView() {
-  const r = D.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = Math.max(r[0].s, 1);
-  return `<section class="bigboard"><div class="bbhead">${clockSVG(D.open === 'closed' ? 1 : 0.5, 110)}<div><h1>${D.open === 'closed' ? '자정이 되었어요!' : '자정의 골동품 가게'}</h1><p>${D.open === 'closed' ? '오늘의 주인공 모둠은?' : D.open === 'open' ? '시계가 자정을 치기 전에 상자를 열어요' : '곧 가게 문이 열려요'}</p></div>
+  const r = order(), top = Math.max(r[0].s, 1);
+  return `<section class="bigboard"><div class="bbhead">${clockSVG(D.open === 'closed' ? 1 : 0.5, 110)}<div><h1>${D.open === 'closed' ? '자정이 되었어요!' : '자정의 골동품 가게'}</h1><p>${D.open === 'closed' ? (tieNote ? esc(tieNote) : '오늘의 주인공 모둠은?') : D.open === 'open' ? '시계가 자정을 치기 전에 상자를 열어요' : '곧 가게 문이 열려요'}</p></div>
    <button class="btn ghost" data-act="back">← 교사용 화면</button></div>
    <ol class="bars">${r.map((x, k) => `<li style="--gc:${TEAMC[x.i]}" class="${k === 0 && x.s > 0 ? 'first' : ''}"><span class="bn">${k + 1}. ${esc(D.names[x.i])}${D.shields[x.i] ? ' 🧿' : ''}</span><span class="bt"><i style="width:${Math.max(x.s / top * 100, 2)}%"></i></span><span class="bs" data-sc data-from="${x.s - (D._d[x.i] || 0)}" data-to="${x.s}">${x.s - (D._d[x.i] || 0)}</span></li>`).join('')}</ol>
    <div class="bbfeed">${feedList(4)}</div></section>`;

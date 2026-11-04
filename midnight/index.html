@@ -106,10 +106,10 @@ function header() {
 }
 function board() {
   const mine = S ? S.group : -1;
-  const top = Math.max(...G.totals);
+  const top = Math.max(...G.totals), solo = G.totals.filter(v => v === top).length === 1;
   return `<section class="board" aria-label="모둠 점수" style="--tag:url(${IMG.TAG})">${G.totals.map((s, i) => `
    <div class="team ${i === mine ? 'on mine' : ''} ${deltas[i] ? 'bump' : ''}" style="--tilt:${[-1.2, .8, -.5, 1.1, -.9, .6, -.7, 1][i]}deg">
-    <span class="nm"><span style="color:${TEAMC[i]}">◆</span>${esc(G.names[i])}${G.shields[i] ? `<span class="sh" title="보호 부적">🧿${G.shields[i] > 1 ? '×' + G.shields[i] : ''}</span>` : ''}${s === top && top > 0 ? '<span class="crownmark" title="1등">👑</span>' : ''}</span>
+    <span class="nm"><span style="color:${TEAMC[i]}">◆</span>${esc(G.names[i])}${G.shields[i] ? `<span class="sh" title="보호 부적">🧿${G.shields[i] > 1 ? '×' + G.shields[i] : ''}</span>` : ''}${s === top && top > 0 && solo ? '<span class="crownmark" title="1등">👑</span>' : ''}</span>
     <span class="sc"><span data-sc data-to="${s}" data-from="${deltas[i] ? s - deltas[i] : s}">${deltas[i] ? s - deltas[i] : s}</span><small>점</small></span>
     ${deltas[i] ? `<span class="delta ${deltas[i] > 0 ? 'up' : 'down'}">${deltas[i] > 0 ? '+' : ''}${deltas[i]}</span>` : ''}
    </div>`).join('')}</section>`;
@@ -206,9 +206,9 @@ function doneScreen() {
    <h2>모든 질문에 답했어요!</h2><p>시계가 자정을 칠 때까지 모둠 점수판을 지켜보세요. 친구들의 상자가 아직 열리고 있어요.</p>${myStats()}</section>`;
 }
 function endScreen() {
-  const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s;
+  const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s, solo = r.length < 2 || r[1].s !== top;
   return `${header()}<section class="shelf end" style="--endimg:url(${IMG.END})"><h2>댕… 댕… 자정이 되었어요</h2><p>가게 문이 닫히고, 오늘의 주인공 모둠이 정해졌어요.</p>
-   <div class="podium">${r.map((x, k) => `<div class="rank ${x.s === top ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}"><span>${k + 1}위 · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
+   <div class="podium">${r.map((x, k) => `<div class="rank ${k === 0 && solo ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}"><span>${k + 1}위 · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
    ${myStats()}</section>`;
 }
 function render() {
