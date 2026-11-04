@@ -82,7 +82,9 @@ function route() {
   }
 }
 
+let polling = false;
 async function poll() {
+  if (polling) return; polling = true;
   try {
     const st = await api({ action: 'state' });
     const verChanged = G && st && st.ok && (st.setVer !== G.setVer);
@@ -93,6 +95,7 @@ async function poll() {
     route();
     if (!(S && S.screen === 'join' && document.activeElement && document.activeElement.id === 'myname')) render();
   } catch (e) {}
+  polling = false;
 }
 
 /* ---------- 화면 ---------- */
@@ -181,7 +184,7 @@ function shelf() {
   } else if (S.phase === 'opening') {
     bottom = S.err ? `<p class="result">${esc(S.err)}</p><button class="btn" data-act="retry">다시 열기</button>` : `<p class="result opening">봉인이 풀리는 중이에요…</p>`;
   } else if (opened) {
-    bottom = `<p class="result">${esc(S.msg)}<span class="en">“${esc(item(S.boxes[S.chosen]).en)}”</span></p><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 질문 끝!' : '다음 질문'}</button>`;
+    bottom = `<p class="result">${S.msg ? esc(S.msg) : '<span class="opening">모둠 점수판에 반영하는 중이에요…</span>'}<span class="en">“${esc(item(S.boxes[S.chosen]).en)}”</span></p><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 질문 끝!' : '다음 질문'}</button>`;
   } else bottom = `<p>마음에 드는 상자를 하나 눌러 보세요.</p>`;
   return `<section class="shelf"><h2>${esc(S.name.replace(/^\d+\s*(번)?\s*/, '') || S.name)}, 봉인을 하나 뜯어 보세요</h2>
    <div class="boxes" style="--seal:url(${IMG.SEAL})">${[0, 3].map(st => `<div class="srow" style="--shelf:url(${IMG.SHELF})"><div class="sbox">${S.boxes.slice(st, st + 3).map((id, j) => {
@@ -250,23 +253,30 @@ async function join() {
   busy = false; render();
 }
 function finish() { S.screen = 'done'; SendQueue.push({ action: 'finish', sid: S.sid, id: S.id }); SFX.good(); }
-async function openBox() {
-  S.phase = 'opening'; S.err = ''; render();
-  const id = S.boxes[S.chosen];
-  if (!S.eid) S.eid = uid();
-  saveMe();
-  try {
-    const r = await api({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: id, target: S.target, myPts: S.myPts, eid: S.eid }, 4);
-    if (!r || !r.ok) {
-      if (r && r.error === 'sid') { takeState(r.state); route(); render(); return; }
-      throw new Error('box');
-    }
+/* 상자는 누르는 즉시 열어서 보여 주고, 점수 반영은 뒤에서 서버로 보냄 (기다리지 않게) */
+function openBox() {
+  const job = { eid: S.eid || uid(), item: S.boxes[S.chosen], target: S.target, myPts: S.myPts };
+  S.eid = null; S.err = ''; S.msg = ''; S.cur = job.eid; S.opened++; S.phase = 'opened';
+  S.pend = (S.pend || []).concat(job);
+  const k = item(job.item).kind; setTimeout(() => SFX[k === 'g' ? 'good' : k === 'b' ? 'bad' : 'fate'](), 250);
+  saveMe(); render(); sendBoxes();
+}
+let boxBusy = false;
+async function sendBoxes() {
+  if (boxBusy || !S) return; boxBusy = true;
+  while (S && S.pend && S.pend.length) {
+    const j = S.pend[0]; let r = null;
+    try { r = await api({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: j.item, target: j.target, myPts: j.myPts, eid: j.eid }, 2); } catch (e) {}
+    if (!r) { boxBusy = false; setTimeout(sendBoxes, 3000); return; }
+    S.pend.shift();
+    if (!r.ok) { if (r.error === 'sid') { S.pend = []; if (r.state) takeState(r.state); } saveMe(); route(); render(); continue; }
     takeState(r, true);
-    S.msg = r.msg; S.myPts += r.mine || 0; S.opened++; S.phase = 'opened'; S.eid = null;
-    const k = item(id).kind; setTimeout(() => SFX[k === 'g' ? 'good' : k === 'b' ? 'bad' : 'fate'](), 300);
-    route();
-  } catch (e) { S.err = '인터넷이 잠깐 끊겼어요. 아래 버튼을 눌러 다시 열어 주세요.'; }
-  render();
+    S.myPts += r.mine || 0;
+    if (S.cur === j.eid && S.phase === 'opened') S.msg = r.msg;
+    else toast(`내가 연 상자: ${esc(r.msg)}`, (r.mine || 0) < 0 ? 'down' : 'up');
+    saveMe(); route(); render();
+  }
+  boxBusy = false;
 }
 function nextQ() {
   S.qi++; S.phase = 'q'; S.picked = null; S.chosen = null; S.boxes = []; S.msg = ''; S.target = null;
@@ -319,12 +329,12 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
   if (me && me.sid === G.sid && Array.isArray(me.order)) {
     S = me;
     if (S.order.some(k => !SET.questions[k])) S.order = shuffle(SET.questions.map((_, k) => k));
-    if (S.phase === 'opening') { S.phase = 'opening'; setTimeout(openBox, 50); }
+    if (S.phase === 'opening') setTimeout(openBox, 50);
     draft.group = S.group; draft.name = S.name || '';
   }
   route(); render();
-  SendQueue.flush();
-  setInterval(poll, 5000);
+  SendQueue.flush(); sendBoxes();
+  setInterval(poll, 3000);
 })();
 </script>
 </body>

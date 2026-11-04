@@ -32,14 +32,20 @@ async function call(p) {
   if (r && r.error === 'pw') { view = 'login'; PW = ''; render(); throw new Error('pw'); }
   return r;
 }
+let refreshing = false;
 async function refresh() {
-  if (view === 'login' || view === 'edit') return;
+  if (view === 'login' || view === 'edit' || refreshing) return;
+  refreshing = true;
+  const t0 = Date.now();
   try {
     const r = await call({ action: 'dash' });
-    if (r && r.ok) { take(r); lastOk = Date.now(); paint(); }
+    if (r && r.ok && t0 > lastWrite) { take(r); lastOk = Date.now(); paint(); }
   } catch (e) { const s = document.getElementById('sync'); if (s) { s.textContent = '연결이 잠깐 끊겼어요'; s.classList.add('err'); } }
+  refreshing = false;
 }
+let pendingOpen = null, lastWrite = 0;
 function take(r) {
+  if (pendingOpen) r.open = pendingOpen;
   const old = D; D = r;
   D._d = {};
   if (old && old.sid === r.sid) r.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) D._d[i] = d; });
@@ -69,6 +75,7 @@ async function settleTie() {
   try {
     const r = await call({ action: 'adjust', group: w.i, delta: 1 });
     if (r && r.ok) {
+      lastWrite = Date.now();
       tieNote = `${tied.map(x => D.names[x.i]).join(' · ')} 동점! ${D.names[w.i]}이(가) ${why} +1점, 1등이 되었어요.`;
       saving = tieNote; breaking = false; take(r); paint(); return;
     }
@@ -195,9 +202,10 @@ function paint() {
 
 async function config(p, okMsg) {
   saving = '저장하는 중…'; paintCtl();
-  try { const r = await call(Object.assign({ action: 'config' }, p)); if (r && r.ok) { take(r); saving = okMsg; SFX.saved(); } else saving = '!저장하지 못했어요. 다시 눌러 주세요.'; }
+  try { const r = await call(Object.assign({ action: 'config' }, p)); if (r && r.ok) { pendingOpen = null; lastWrite = Date.now(); take(r); saving = okMsg; SFX.saved(); } else saving = '!저장하지 못했어요. 다시 눌러 주세요.'; }
   catch (e) { if (view !== 'login') saving = '!인터넷 연결을 확인하고 다시 눌러 주세요.'; }
-  if (view === 'main') render();
+  pendingOpen = null;
+  if (view === 'main' || view === 'big') render();
 }
 function paintCtl() { const c = document.getElementById('ctl'); if (c) c.innerHTML = controls(); }
 
@@ -383,11 +391,12 @@ app.addEventListener('click', async e => {
   if (a === 'open') {
     const v = b.dataset.v; if (v === D.open) return;
     if (v === 'open') SFX.bell(); else if (v === 'closed') SFX.midnight(); else SFX.pick();
+    pendingOpen = v; D.open = v; saving = '학생 화면에 알리는 중…'; render();
     config({ open: v }, { wait: '준비 중이에요. 학생들이 모둠을 고르고 기다려요.', open: '가게 문을 열었어요! 학생들이 풀기 시작해요.', closed: '자정이 되었어요. 학생 화면에 순위가 나와요.' }[v]);
   }
   else if (a === 'n') { const n = +b.dataset.n; if (n === D.n) return; SFX.pick(); config({ n }, `${n}모둠으로 바꿨어요.`); }
   else if (a === 'names') saveNames();
-  else if (a === 'adj') { SFX.click(); try { const r = await call({ action: 'adjust', group: +b.dataset.g, delta: +b.dataset.d }); if (r && r.ok) { take(r); paint(); } } catch (err) {} }
+  else if (a === 'adj') { SFX.click(); try { const r = await call({ action: 'adjust', group: +b.dataset.g, delta: +b.dataset.d }); if (r && r.ok) { lastWrite = Date.now(); take(r); paint(); } } catch (err) {} }
   else if (a === 'reset') {
     if (!confirmReset) { confirmReset = true; paintCtl(); setTimeout(() => { confirmReset = false; if (view === 'main') paintCtl(); }, 6000); return; }
     confirmReset = false; saving = '새 수업을 준비하는 중…'; paintCtl();
@@ -405,7 +414,7 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
     try { const r = await api({ action: 'dash', pw: PW }, 3); if (r && r.ok) { take(r); view = 'main'; render(); loadSets().then(() => { if (view === 'main') paint(); }); } else { PW = ''; view = 'login'; render(); } }
     catch (e) { view = 'login'; saving = '서버에 연결하지 못했어요.'; render(); }
   } else render();
-  setInterval(refresh, 4000);
+  setInterval(refresh, 3000);
 })();
 </script>
 </body>
