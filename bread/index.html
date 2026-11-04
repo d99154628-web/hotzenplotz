@@ -447,10 +447,13 @@ probe('logo_title').then(u=>{if(!u)return;
 probe('logo_ending').then(u=>{if(u)$('endLogo').innerHTML=`<img class="logoImg" src="${u}" alt="오늘의 최고 빵집">`;});
 
 /* 오프닝 영상 */
+let introReady=false,afterIntro=null;
 (function(){const v=document.createElement('video');v.preload='metadata';
-  v.onloadedmetadata=()=>{$('introBtn').hidden=false;$('introVideo').src=A+'intro.mp4'};v.src=A+'intro.mp4';})();
-$('introBtn').onclick=()=>{if(bgm)bgm.pause();$('introLayer').hidden=false;const v=$('introVideo');v.currentTime=0;v.play().catch(()=>{})};
-function closeIntro(){const v=$('introVideo');v.pause();$('introLayer').hidden=true;if(bgm&&musicOn)bgm.play().catch(()=>{})}
+  v.onloadedmetadata=()=>{introReady=true;$('introBtn').hidden=false;$('introVideo').src=A+'intro.mp4'};v.src=A+'intro.mp4';})();
+function playIntro(then){afterIntro=then||null;if(bgm)bgm.pause();$('introLayer').hidden=false;const v=$('introVideo');v.currentTime=0;v.play().catch(()=>{})}
+$('introBtn').onclick=()=>playIntro();
+function closeIntro(){const v=$('introVideo');v.pause();$('introLayer').hidden=true;
+  const f=afterIntro;afterIntro=null;if(f)f();else if(bgm&&musicOn)bgm.play().catch(()=>{})}
 $('introSkip').onclick=closeIntro;$('introVideo').onended=closeIntro;
 
 /* ---------- 설정 ---------- */
@@ -465,7 +468,8 @@ function renderSetup(){
   const old=load();$('resumeBtn').hidden=!(old&&old.qCount>0);
 }
 $('startBtn').onclick=()=>{for(let i=0;i<S.n;i++){const v=$('tn'+i).value.trim();S.names[i]=v||TEAM_DEFAULT[i];}
-  S.scores=[0,0,0,0,0,0];S.turn=0;S.deck=[];S.qCount=0;S.cur=null;S.curDone=false;sfx('sfx_fanfare');startGame();};
+  S.scores=[0,0,0,0,0,0];S.turn=0;S.deck=[];S.qCount=0;S.cur=null;S.curDone=false;
+  const go=()=>{sfx('sfx_fanfare');startGame()};if(introReady)playIntro(go);else go();};
 $('resumeBtn').onclick=()=>{const o=load();if(o){S=o;startGame(true)}};
 document.addEventListener('pointerdown',function first(){document.removeEventListener('pointerdown',first);if(!$('setup').hidden)playBgm('bgm_lobby')});
 
