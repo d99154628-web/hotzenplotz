@@ -411,7 +411,7 @@ const FALLBACK={
 async function sfx(name){if(!soundOn)return;const u=await probeA(name);
   if(u){const a=new Audio(u);a.volume=.9;a.play().catch(()=>{})}else FALLBACK[name]&&FALLBACK[name]();}
 async function playBgm(name){if(bgmName===name&&bgm&&!bgm.paused)return;bgmName=name;
-  if(bgm){bgm.pause();bgm=null}if(!musicOn)return;const u=await probeA(name);if(!u||bgmName!==name)return;
+  if(bgm){bgm.pause();bgm=null}if(!musicOn)return;const u=(await probeA(name))||(name==='bgm_game'?await probeA('bgm_lobby'):null);if(!u||bgmName!==name)return;
   bgm=new Audio(u);bgm.loop=true;bgm.volume=.3;bgm.play().catch(()=>{});}
 function duck(on){if(bgm)bgm.volume=on?.08:.3}
 async function speakQ(text){duck(true);const f=VOICE[text];const u=f?await probeA(f):null;
