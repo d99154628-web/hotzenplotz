@@ -89,7 +89,7 @@ function setSize() {
   const s = SETS.find(x => x.id === D.setId); return s ? s.questions.length : (D.limit || 20);
 }
 const lim = () => D.limit ? Math.min(D.limit, setSize()) : setSize();
-const endless = () => !D.limit || D.limit >= setSize();
+const endless = () => true;
 function groupStats(g) {
   const m = D.students.filter(s => s.g === g), L = lim();
   const q = m.reduce((a, s) => a + Math.min(s.qi, L), 0), qa = m.reduce((a, s) => a + s.qi, 0), r = m.reduce((a, s) => a + s.right, 0);
@@ -121,9 +121,8 @@ function controls() {
    <div class="ctlgrid">
     <div class="ctlrow"><span class="lab">모둠 수</span><div class="count-row" role="group" aria-label="모둠 수">${[2, 3, 4, 5, 6, 7, 8].map(k => `<button data-act="n" data-n="${k}" aria-pressed="${n === k}">${k}</button>`).join('')}</div>
      ${D.students.some(s => s.g >= n) ? `<p class="tnote warn">줄인 모둠에 들어가 있던 학생은 모둠을 다시 골라야 해요.</p>` : ''}</div>
-    <div class="ctlrow"><span class="lab">한 사람이 푸는 질문 수</span>
-     <select class="sel big" data-act-change="limit" aria-label="한 사람이 푸는 질문 수">${lims.map(v => `<option value="${v}" ${(D.limit || 0) === v || (v === 0 && D.limit >= setSize()) ? 'selected' : ''}>${v ? v + '문제' : '전체 ' + setSize() + '문제 (계속 반복)'}</option>`).join('')}</select>
-     <small class="hint">문제는 학생마다 순서가 다르게 무작위로 나와요.</small></div>
+    <div class="ctlrow"><span class="lab">질문 수</span>
+     <p class="tnote">끝없이 계속 나와요. 문제 ${setSize()}개를 다 풀면 순서와 보기 위치를 다시 섞어서 이어서 나오고, 선생님이 <b>자정</b>을 누르면 끝나요.</p></div>
    </div>
    <div class="ctlrow"><span class="lab">모둠 이름</span><div class="names">${Array.from({ length: n }, (_, i) => `<label for="gn${i}"><span><span style="color:${TEAMC[i]}">◆</span> ${i + 1}번 모둠</span><input id="gn${i}" data-gn="${i}" value="${esc(D.allNames[i])}" maxlength="12"></label>`).join('')}</div>
     <div><button class="btn ghost small" data-act="names">모둠 이름 저장</button></div></div>
@@ -137,7 +136,7 @@ function groupCard(g) {
   const rank = order().findIndex(x => x.i === g) + 1;
   const rows = st.m.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true })).map(s => {
     const qi = Math.min(s.qi, L), done = s.done || (!endless() && s.qi >= L), idle = !done && D.open === 'open' && D.now - s.updated > 120000;
-    const acc = s.qi ? Math.round(s.right / s.qi * 100) : null, qlabel = endless() && s.qi > L ? `${s.qi}문제` : `${qi}/${L}`;
+    const acc = s.qi ? Math.round(s.right / s.qi * 100) : null, qlabel = `${s.qi}문제`;
     return `<li class="${done ? 'done' : idle ? 'idle' : ''}"><span class="sn" title="${esc(s.name)}">${esc(s.name)}</span>
       <span class="bar" aria-label="${qi}/${L}문제"><i style="width:${qi / L * 100}%"></i></span><span class="qn">${qlabel}</span>
       <span class="acc">${acc == null ? '–' : acc + '%'}</span><span class="pt ${s.pts < 0 ? 'neg' : ''}">${s.pts > 0 ? '+' : ''}${s.pts}</span>
@@ -148,7 +147,7 @@ function groupCard(g) {
    <div class="gscore"><span class="num" data-sc data-from="${sc - d}" data-to="${sc}">${sc - d}</span><small>점</small>${D.shields[g] ? `<span class="sh" title="보호 부적">🧿${D.shields[g] > 1 ? '×' + D.shields[g] : ''}</span>` : ''}
     ${d ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${d}</span>` : ''}
     <span class="adj"><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="-10" aria-label="${esc(D.names[g])} 10점 빼기">−10</button><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="10" aria-label="${esc(D.names[g])} 10점 더하기">+10</button></span></div>
-   <div class="gstats"><span>참가 <b>${st.m.length}</b>명</span><span>진행 <b>${Math.round(st.prog * 100)}%</b></span><span>정답률 <b>${st.acc == null ? '–' : Math.round(st.acc * 100) + '%'}</b></span><span>완료 <b>${st.done}</b>명</span></div>
+   <div class="gstats"><span>참가 <b>${st.m.length}</b>명</span><span>푼 문제 <b>${st.m.reduce((a, s) => a + s.qi, 0)}</b>개</span><span>정답률 <b>${st.acc == null ? '–' : Math.round(st.acc * 100) + '%'}</b></span></div>
    <div class="gprog"><i style="width:${st.prog * 100}%"></i></div>
    ${st.m.length ? `<ul class="members"><li class="mh"><span class="sn">이름</span><span class="bar">진행</span><span class="qn"></span><span class="acc">정답률</span><span class="pt">점수</span><span class="stt">상태</span></li>${rows}</ul>` : `<p class="empty">아직 들어온 학생이 없어요.</p>`}
   </article>`;

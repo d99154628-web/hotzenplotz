@@ -40,9 +40,16 @@ async function loadSet() {
   SET = DEFAULT_SET;
 }
 const pas = k => (SET.passages || []).find(x => x.id === k);
-const Q = () => { ensureOrder(); return SET.questions[S.order[S.qi]]; };
+function Q() {   /* 같은 문제가 다시 나와도 보기 순서를 섞어서 새 문제처럼 */
+  ensureOrder();
+  const q = SET.questions[S.order[S.qi]]; if (!q) return q;
+  S.perm = S.perm || {};
+  let p = S.perm[S.qi];
+  if (!Array.isArray(p) || p.length !== q.c.length) { p = S.perm[S.qi] = shuffle(q.c.map((_, k) => k)); for (const k in S.perm) if (+k < S.qi - 2) delete S.perm[k]; }
+  return Object.assign({}, q, { c: p.map(k => q.c[k]), a: p.indexOf(q.a) });
+}
 const total = () => SET ? SET.questions.length : 0;
-const endless = () => !(G && G.limit) || G.limit >= total();   /* '전체 문제' 모드: 다 풀면 섞어서 다시 나와요 */
+const endless = () => true;   /* 끝없이: 다 풀면 섞어서 다시 나와요 (선생님이 자정을 누를 때까지) */
 const limit = () => endless() ? Infinity : Math.min(G.limit, total());
 function ensureOrder() {   /* 남은 문제가 없으면 한 바퀴 더 섞어 붙이기 (방금 푼 문제가 바로 또 나오지 않게) */
   if (!S || !SET) return;
@@ -105,7 +112,7 @@ async function poll() {
 /* ---------- 화면 ---------- */
 function header() {
   const g = S && ['game', 'done'].includes(S.screen);
-  const prog = !S ? 0 : S.screen === 'end' ? 1 : S.screen === 'done' ? 1 : (endless() ? (S.qi % Math.max(total(), 1)) / Math.max(total(), 1) : Math.min(S.qi / Math.max(limit(), 1), 1));
+  const prog = !S ? 0 : S.screen === 'end' ? 1 : S.screen === 'done' ? 1 : S.qi / (S.qi + 25);   /* 시계는 자정 가까이 천천히 다가가기만 해요 (끝은 선생님이) */
   return `<header class="top"><div class="brand">${clockSVG(prog)}<div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
   ${S && S.screen !== 'join' ? `<div class="toolbar">${g && S.screen === 'game' ? `<span class="chip">No. ${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
     <span class="who"><span style="color:${TEAMC[S.group]}">◆</span> ${esc(G.names[S.group])} · ${esc(S.name)}</span>
