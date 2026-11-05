@@ -113,7 +113,7 @@ function handle_(p) {
   if (a === 'state') return publicState_();
   if (a === 'set') return { ok: true, set: activeSet_() };
 
-  if (a === 'join') return withLock_(() => {
+  if (a === 'join') {
     const c = cfg_(), g = Number(p.group);
     if (!(g >= 0 && g < c.n)) return { ok: false, error: 'group' };
     if (String(p.sid) !== String(c.sid)) return { ok: false, error: 'sid', state: publicState_() };
@@ -123,8 +123,8 @@ function handle_(p) {
       s.getRange(r + 2, 2, 1, 2).setValues([[g, String(p.name || '').slice(0, 20)]]);
       s.getRange(r + 2, 9).setValue(now);
     } else s.appendRow([String(p.id), g, String(p.name || '').slice(0, 20), 0, 0, 0, '', now, now, c.sid]);
-    return publicState_();
-  });
+    return { ok: true };
+  }
 
   if (a === 'answer') {
     const hit = seen_(p.eid); if (hit) return hit;
@@ -157,6 +157,7 @@ function handle_(p) {
     const hit = seen_(p.eid); if (hit) return hit;
     const c = cfg_();
     if (String(p.sid) !== String(c.sid)) return { ok: false, error: 'sid', state: publicState_() };
+    if (c.open !== 'open') return { ok: false, error: 'closed', state: publicState_() };  // 자정이 되면 점수 그대로 멈춤
     const res = applyBox_(c, p);
     remember_(p.eid, res);
     return res;

@@ -43,7 +43,8 @@ const SendQueue = {
       let q = this.load();
       while (q.length) {
         const r = await api(q[0]);
-        if (!r || r.ok === false) throw new Error('send fail');
+        const drop = r && r.ok === false && ['sid', 'group', 'closed', 'item', 'pw'].includes(r.error);
+        if (!r || (r.ok === false && !drop)) throw new Error('send fail');
         q = this.load(); q.shift(); this.save(q);
       }
     } catch (e) { setTimeout(() => this.flush(), 4000); }

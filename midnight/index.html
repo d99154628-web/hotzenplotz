@@ -52,15 +52,6 @@ function takeState(st, quiet) {
   }
   G = st;
   // 새 소식 (다른 친구가 우리 모둠에 영향을 준 일)
-  const fresh = (st.feed || []).filter(f => f.t > lastFeedT).reverse();
-  if (lastFeedT && S && S.group != null) fresh.forEach(f => {
-    if (f.id && f.id === S.id) return;
-    const mine = (f.d || []).find(x => x[0] === S.group);
-    if (mine && f.g !== S.group) toast(`${esc(G.names[f.g] || '')} ${esc(f.who)}: ${esc(f.msg)}`, mine[1] > 0 ? 'up' : 'down');
-    else if (mine && f.g === S.group && !quiet) toast(`우리 모둠 ${esc(f.who)}: ${esc(f.msg)}`, mine[1] > 0 ? 'up' : 'down');
-  });
-  if (st.feed && st.feed.length) lastFeedT = Math.max(lastFeedT, st.feed[0].t);
-  if (!lastFeedT) lastFeedT = st.now || Date.now();
 }
 
 /* 상태가 바뀌었을 때 화면 정하기 */
@@ -70,7 +61,7 @@ function route() {
   if (S && S.group >= G.n) { S.screen = 'join'; draft.group = null; draft.name = S.name; joinMsg = '모둠 수가 바뀌었어요. 모둠을 다시 골라 주세요.'; }
   if (!S || S.screen === 'join') return;
   const before = S.screen;
-  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase)) S.screen = 'end'; }
+  if (G.open === 'closed') { S.screen = 'end'; if (S.pend && S.pend.length) S.pend = []; }
   else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
   else {
     if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
@@ -82,9 +73,10 @@ function route() {
   }
 }
 
-let polling = false;
+let polling = false, lastSig = '';
+const sig = () => JSON.stringify([G && [G.sid, G.n, G.names, G.limit, G.open, G.setVer, G.totals, G.shields], S && [S.screen, S.group, S.qi, S.phase]]);
 async function poll() {
-  if (polling) return; polling = true;
+  if (polling || document.hidden) return; polling = true;
   try {
     const st = await api({ action: 'state' });
     const verChanged = G && st && st.ok && (st.setVer !== G.setVer);
@@ -93,7 +85,8 @@ async function poll() {
       await loadSet(); if (S && S.qi === 0) { S.order = shuffle(SET.questions.map((_, k) => k)); }
     }
     route();
-    if (!(S && S.screen === 'join' && document.activeElement && document.activeElement.id === 'myname')) render();
+    const now = sig();
+    if (now !== lastSig && !(S && S.screen === 'join' && document.activeElement && document.activeElement.id === 'myname')) render();
   } catch (e) {}
   polling = false;
 }
@@ -135,7 +128,7 @@ function joinScreen() {
    <div class="step"><span class="lab"><span class="num">2</span>번호와 이름을 써요</span>
     <input id="myname" class="nameinput" value="${esc(draft.name)}" maxlength="14" placeholder="예: 7 김하늘" autocomplete="off"></div>
    <details class="catwrap"><summary>가게에 잠든 물건들 보기</summary>
-    <div class="catalog">${ITEMS.map(x => `<div class="cat ${x.kind}"><img src="${IMG[x.id]}" alt=""><span><b>${x.name}</b>${x.fx}</span></div>`).join('')}</div></details>
+    <div class="catalog">${ITEMS.map(x => `<div class="cat ${x.kind}"><img src="${IMG[x.id]}" alt="" loading="lazy"><span><b>${x.name}</b>${x.fx}</span></div>`).join('')}</div></details>
    <div class="keyrow"><div class="keyimg"><img src="${IMG.KEY}" alt="꼬리표가 달린 낡은 열쇠"><span>Open it<br>at midnight.</span></div>
     <button class="btn" data-act="join" ${can && !busy && G.open !== 'closed' ? '' : 'disabled'}>${busy ? '문을 여는 중…' : '열쇠로 문 열기'}</button></div>
   </section>`;
@@ -205,8 +198,8 @@ function myStats() {
   return `<div class="mystats"><div><span>맞힌 질문</span><b>${S.right} / ${limit()}</b></div><div><span>우리 모둠에 보탠 점수</span><b>${S.myPts > 0 ? '+' : ''}${S.myPts}</b></div><div><span>연 상자</span><b>${S.opened}</b></div></div>`;
 }
 function doneScreen() {
-  return `${header()}${board()}${feedLine()}<section class="shelf waitcard"><img class="waitimg" src="${IMG.KEY}" alt="">
-   <h2>모든 질문에 답했어요!</h2><p>시계가 자정을 칠 때까지 모둠 점수판을 지켜보세요. 친구들의 상자가 아직 열리고 있어요.</p>${myStats()}</section>`;
+  return `${header()}${board()}<section class="shelf waitcard"><img class="waitimg" src="${IMG.KEY}" alt="">
+   <h2>모든 질문에 답했어요!</h2><p>시계가 자정을 칠 때까지 모둠 점수판을 지켜보세요.</p>${myStats()}</section>`;
 }
 function endScreen() {
   const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s, solo = r.length < 2 || r[1].s !== top;
@@ -220,9 +213,10 @@ function render() {
   else if (S.screen === 'wait') app.innerHTML = waitScreen();
   else if (S.screen === 'done') app.innerHTML = doneScreen();
   else if (S.screen === 'end') app.innerHTML = endScreen();
-  else app.innerHTML = header() + board() + feedLine() + (['box', 'target', 'opening', 'opened'].includes(S.phase) ? shelf() : ledger());
+  else app.innerHTML = header() + board() + (['box', 'target', 'opening', 'opened'].includes(S.phase) ? shelf() : ledger());
   countUp(app);
   deltas = {};
+  lastSig = sig();
   saveMe();
 }
 window.onVoices = () => { if (S && S.screen === 'wait') render(); };
@@ -237,24 +231,23 @@ function toast(html, kind) {
 }
 
 /* ---------- 동작 ---------- */
+/* 입장은 기다리지 않고 바로 들어가요. 서버 기록은 뒤에서 보냄 */
 async function join() {
-  if (busy) return; busy = true; render();
+  if (busy || draft.group == null || !draft.name.trim() || G.open === 'closed') return;
+  busy = true;
+  if (!SET) { render(); await loadSet(); }
   const id = (S && S.id) || uid();
-  try {
-    const r = await api({ action: 'join', sid: G.sid, id, group: draft.group, name: draft.name.trim() }, 3);
-    if (!r || !r.ok) { if (r && r.state) takeState(r.state); joinMsg = '들어가지 못했어요. 다시 눌러 주세요.'; busy = false; render(); return; }
-    takeState(r, true);
-    if (!SET) await loadSet();
-    const keep = S && S.sid === G.sid && S.id === id ? S : null;
-    S = keep || { sid: G.sid, id, order: shuffle(SET.questions.map((_, k) => k)), qi: 0, phase: 'q', picked: null, boxes: [], chosen: null, target: null, msg: '', myPts: 0, right: 0, opened: 0 };
-    S.group = draft.group; S.name = draft.name.trim(); S.screen = 'wait'; joinMsg = '';
-    SFX.pick(); route();
-  } catch (e) { joinMsg = '인터넷 연결을 확인하고 다시 눌러 주세요.'; }
-  busy = false; render();
+  const keep = S && S.sid === G.sid && S.id === id ? S : null;
+  S = keep || { sid: G.sid, id, order: shuffle(SET.questions.map((_, k) => k)), qi: 0, phase: 'q', picked: null, boxes: [], chosen: null, target: null, msg: '', myPts: 0, right: 0, opened: 0 };
+  S.group = draft.group; S.name = draft.name.trim(); S.screen = 'wait'; joinMsg = '';
+  SendQueue.push({ action: 'join', sid: G.sid, id, group: S.group, name: S.name });
+  SFX.pick(); route();
+  busy = false; lastSig = ''; render();
 }
 function finish() { S.screen = 'done'; SendQueue.push({ action: 'finish', sid: S.sid, id: S.id }); SFX.good(); }
 /* 상자는 누르는 즉시 열어서 보여 주고, 점수 반영은 뒤에서 서버로 보냄 (기다리지 않게) */
 function openBox() {
+  if (G && G.open !== 'open') { route(); render(); return; }
   const job = { eid: S.eid || uid(), item: S.boxes[S.chosen], target: S.target, myPts: S.myPts };
   S.eid = null; S.err = ''; S.msg = ''; S.cur = job.eid; S.opened++; S.phase = 'opened';
   S.pend = (S.pend || []).concat(job);
@@ -269,7 +262,7 @@ async function sendBoxes() {
     try { r = await api({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: j.item, target: j.target, myPts: j.myPts, eid: j.eid }, 2); } catch (e) {}
     if (!r) { boxBusy = false; setTimeout(sendBoxes, 3000); return; }
     S.pend.shift();
-    if (!r.ok) { if (r.error === 'sid') { S.pend = []; if (r.state) takeState(r.state); } saveMe(); route(); render(); continue; }
+    if (!r.ok) { if (r.error === 'sid' || r.error === 'closed') { S.pend = []; if (r.state) takeState(r.state); } saveMe(); route(); render(); continue; }
     takeState(r, true);
     S.myPts += r.mine || 0;
     if (S.cur === j.eid && S.phase === 'opened') S.msg = r.msg;
@@ -334,7 +327,8 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
   }
   route(); render();
   SendQueue.flush(); sendBoxes();
-  setInterval(poll, 3000);
+  setTimeout(function loop() { poll().finally(() => setTimeout(loop, 4500 + Math.random() * 1500)); }, 2000 + Math.random() * 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();
 </script>
 </body>
