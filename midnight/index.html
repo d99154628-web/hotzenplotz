@@ -40,8 +40,18 @@ async function loadSet() {
   SET = DEFAULT_SET;
 }
 const pas = k => (SET.passages || []).find(x => x.id === k);
-const Q = () => SET.questions[S.order[S.qi]];
-const limit = () => { const n = S ? S.order.length : 0; return G && G.limit ? Math.min(G.limit, n) : n; };
+const Q = () => { ensureOrder(); return SET.questions[S.order[S.qi]]; };
+const total = () => SET ? SET.questions.length : 0;
+const endless = () => !(G && G.limit) || G.limit >= total();   /* '전체 문제' 모드: 다 풀면 섞어서 다시 나와요 */
+const limit = () => endless() ? Infinity : Math.min(G.limit, total());
+function ensureOrder() {   /* 남은 문제가 없으면 한 바퀴 더 섞어 붙이기 (방금 푼 문제가 바로 또 나오지 않게) */
+  if (!S || !SET) return;
+  while (S.qi >= S.order.length) {
+    let more = shuffle(SET.questions.map((_, k) => k));
+    if (more.length > 1 && more[0] === S.order[S.order.length - 1]) more.push(more.shift());
+    S.order = S.order.concat(more);
+  }
+}
 
 /* ---------- 서버 상태 반영 ---------- */
 function takeState(st, quiet) {
@@ -65,6 +75,7 @@ function route() {
   else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
   else {
     if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
+    if (S.screen === 'done' && endless()) S.screen = 'game';
     if (S.screen === 'game' && S.phase === 'q' && S.qi >= limit()) finish();
   }
   if (before !== S.screen) {
@@ -94,7 +105,7 @@ async function poll() {
 /* ---------- 화면 ---------- */
 function header() {
   const g = S && ['game', 'done'].includes(S.screen);
-  const prog = !S ? 0 : S.screen === 'end' ? 1 : S.screen === 'done' ? 1 : Math.min(S.qi / Math.max(limit(), 1), 1);
+  const prog = !S ? 0 : S.screen === 'end' ? 1 : S.screen === 'done' ? 1 : (endless() ? (S.qi % Math.max(total(), 1)) / Math.max(total(), 1) : Math.min(S.qi / Math.max(limit(), 1), 1));
   return `<header class="top"><div class="brand">${clockSVG(prog)}<div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
   ${S && S.screen !== 'join' ? `<div class="toolbar">${g && S.screen === 'game' ? `<span class="chip">No. ${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
     <span class="who"><span style="color:${TEAMC[S.group]}">◆</span> ${esc(G.names[S.group])} · ${esc(S.name)}</span>
@@ -272,7 +283,7 @@ async function sendBoxes() {
   boxBusy = false;
 }
 function nextQ() {
-  S.qi++; S.phase = 'q'; S.picked = null; S.chosen = null; S.boxes = []; S.msg = ''; S.target = null;
+  S.qi++; ensureOrder(); S.phase = 'q'; S.picked = null; S.chosen = null; S.boxes = []; S.msg = ''; S.target = null;
   if (S.qi >= limit()) finish(); else SFX.tick();
   route();
 }
@@ -322,6 +333,8 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
   if (me && me.sid === G.sid && Array.isArray(me.order)) {
     S = me;
     if (S.order.some(k => !SET.questions[k])) S.order = shuffle(SET.questions.map((_, k) => k));
+    if (S.screen === 'done' && G.open === 'open' && endless()) S.screen = 'game';
+    ensureOrder();
     if (S.phase === 'opening') setTimeout(openBox, 50);
     draft.group = S.group; draft.name = S.name || '';
   }
