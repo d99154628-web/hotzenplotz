@@ -127,6 +127,50 @@ const BANK = [
 ];
 
 
+/* ---------- 변형 문제: 두 바퀴째부터 섞어 내는 새 문제 (기본 세트 전용) ---------- */
+const VAR = (() => {
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const others = (pool, ans, n) => shuffle(pool.filter(x => x !== ans)).slice(0, n);
+  const mk = (t, q, en, ans, wrong, extra) => { const c = shuffle([ans, ...wrong]); return Object.assign({ t, q, en, c, a: c.indexOf(ans), v: 1 }, extra || {}); };
+  const SUBJ = [['I', 'am', "I'm", '나는'], ['We', 'are', "We're", '우리는'], ['They', 'are', "They're", '그들은'], ['He', 'is', "He's", '그는'], ['She', 'is', "She's", '그녀는'],
+    ['My grandpa', 'is', null, '우리 할아버지는'], ['My sister', 'is', null, '내 여동생은'], ['Mom and Dad', 'are', null, '엄마와 아빠는'], ['My friends', 'are', null, '내 친구들은'], ['Tom', 'is', null, '톰은']];
+  const ACT = [['watch the basketball game', '농구 경기를 볼'], ['go camping', '캠핑을 갈'], ['clean the house', '집을 청소할'], ['clean my room', '내 방을 청소할'], ['cook hamburgers', '햄버거를 요리할'],
+    ['cook pad thai', '팟타이를 요리할'], ['sleep in a tent', '텐트에서 잘'], ['visit my grandma', '할머니를 방문할'], ['go hiking', '하이킹을 갈'], ['stay home', '집에 있을'], ['wear hanbok', '한복을 입을'], ['play soccer', '축구를 할']];
+  const TIME = [['this Saturday', '이번 주 토요일에'], ['this Sunday', '이번 주 일요일에'], ['this weekend', '이번 주말에'], ['tomorrow', '내일'], ['this Friday', '이번 주 금요일에']];
+  const VERB = [['watch', 'the basketball game', ['sleep', 'cook']], ['cook', 'hamburgers', ['sleep', 'wear']], ['clean', 'the house', ['sleep', 'wear']], ['visit', 'my grandpa', ['sleep', 'wear']],
+    ['wear', 'the T-shirts', ['sleep', 'visit']], ['sleep', 'in a tent', ['wear', 'visit']], ['play', 'basketball', ['cook', 'sleep']], ['go', 'camping', ['cook', 'watch']]];
+  const WORD = [['forest', '숲'], ['visit', '방문하다'], ['favorite', '가장 좋아하는'], ['this weekend', '이번 주말'], ['wear', '입다'], ['tent', '텐트'], ['cook', '요리하다'], ['clean', '청소하다'],
+    ['watch', '보다'], ['sleep', '자다'], ['hiking', '하이킹'], ['tomorrow', '내일'], ['Saturday', '토요일'], ['Sunday', '일요일'], ['game', '경기'], ['team', '팀'], ['stay home', '집에 있다'], ['grandpa', '할아버지']];
+  const kSub = s => s[3];
+  const clash = (x, y) => [x, y].includes('this weekend') && [x, y].some(z => /Saturday|Sunday/.test(z));   /* 주말 ↔ 토·일은 둘 다 맞을 수 있어 오답으로 안 씀 */
+  const sent = (s, act, time, be) => `${s[0]} ${be || s[1]} going to ${act}${time ? ' ' + time : ''}.`;
+  const krSent = (s, act, time) => `${kSub(s)} ${time ? time[1] + ' ' : ''}${act[1]} 거야.`;
+  const FACT = [  /* 지문 O/X: [지문, 문장 앞, 정답, 오답들, 문장 뒤] */
+    ['A', '가족은 ', '토요일', ['일요일', '금요일'], '에 농구 경기를 본다.'], ['A', '가족은 ', '농구', ['축구', '야구'], '를 가장 좋아한다.'],
+    ['A', '가족은 경기를 볼 때 블루버즈 ', '티셔츠', ['모자', '점퍼'], '를 입는다.'], ['B', '할아버지는 이번 주 ', '일요일', ['토요일', '금요일'], '에 오신다.'],
+    ['B', '할아버지는 ', '팟타이', ['햄버거', '피자'], '를 가장 좋아하신다.'], ['B', '팟타이는 ', '엄마와 아빠', ['여자아이', '할아버지'], '가 요리한다.'],
+    ['B', '여자아이는 ', '집 청소', ['요리', '숙제'], '를 할 것이다.'], ['C', '남자아이는 ', '아빠', ['엄마', '할아버지'], '와 캠핑을 간다.'],
+    ['C', '캠핑에서 ', '햄버거', ['팟타이', '피자'], '를 요리한다.'], ['C', '캠핑에서 ', '텐트', ['차', '호텔'], '에서 잔다.'], ['C', '남자아이는 ', '숲', ['바다', '공원'], '에서 하이킹하는 것을 좋아한다.']];
+  const G = [
+    () => { const s = pick(SUBJ); return mk('am · is · are', '빈칸에 알맞은 말은?', `${s[0]} ____ going to ${pick(ACT)[0]}.`, s[1], ['am', 'is', 'are'].filter(x => x !== s[1])); },
+    () => { const s = pick(SUBJ), a = pick(ACT), t = pick(TIME), ok = sent(s, a[0], t[0]);
+      const ws = [`${s[0]} ${s[1]} going to ${pick(ACT.filter(x => x !== a))[0]} ${t[0]}.`, `${s[0]} ${s[1]} going to ${a[0]} ${pick(TIME.filter(x => x !== t && !clash(x[0], t[0])))[0]}.`, `${s[0]} ${['am', 'is', 'are'].find(x => x !== s[1])} going to ${a[0]} ${t[0]}.`];
+      return mk('우리말을 영어로', '우리말에 맞는 문장은?', krSent(s, a, t), ok, shuffle(ws).slice(0, 2)); },
+    () => { const s = pick(SUBJ.filter(x => x[2])), a = pick(ACT), w = a[0].split(' '), v = w[0], rest = w.slice(1).join(' ');
+      const ok = `${s[2]} going to ${a[0]}.`, cap = x => x[0].toUpperCase() + x.slice(1);
+      const ws = [`${s[2]} ${v} going to${rest ? ' ' + rest : ''}.`, `${cap(`going to ${s[2]} ${a[0]}`)}.`, `${s[2]} going ${v} to${rest ? ' ' + rest : ''}.`];
+      return mk('문장 만들기', '낱말을 바르게 배열한 문장은?', `( ${shuffle(['going to', s[2], v].concat(rest ? [rest + '.'] : [])).join(' / ')}${rest ? '' : ' .'} )`, ok, shuffle(ws).slice(0, 2)); },
+    () => { const w = pick(WORD); return mk('낱말 뜻', '낱말의 뜻으로 알맞은 것은?', w[0], w[1], others(WORD.map(x => x[1]), w[1], 2), { kr: 1 }); },
+    () => { const w = pick(WORD); return mk('낱말 뜻', '뜻에 맞는 영어 낱말은?', w[1], w[0], others(WORD.map(x => x[0]), w[0], 2), { kr: 0 }); },
+    () => { const v = pick(VERB), s = pick(SUBJ.filter(x => x[2])); return mk('빈칸 채우기', '빈칸에 알맞은 말은?', `${s[2]} going to ____ ${v[1]}.`, v[0], v[2]); },
+    () => { const t = pick(TIME), a = pick(ACT); return mk('대화 완성', 'B의 대답으로 알맞은 것은?', `A: What are you going to do ${t[0]}?\nB: ____`, `I'm going to ${a[0]}.`, [`I'm ${a[0]}.`, `I going to ${a[0]}.`, `I'm going ${a[0]}.`].sort(() => Math.random() - .5).slice(0, 2)); },
+    () => { const t = pick(TIME); return mk('낱말 뜻', '뜻으로 알맞은 것은?', t[0], t[1].replace(/에$/, ''), others(TIME.map(x => x[1].replace(/에$/, '')), t[1].replace(/에$/, ''), 2), { kr: 1 }); },
+    () => { const f = pick(FACT), yes = Math.random() < .5, w = yes ? f[2] : pick(f[3]); return Object.assign(mk('O / X', f[1] + w + f[4], null, yes ? 'O' : 'X', [yes ? 'X' : 'O']), { p: f[0], c: ['O', 'X'], a: yes ? 0 : 1 }); },
+    () => { const f = pick(FACT); return Object.assign(mk('지문 다시 읽기', '빈칸에 알맞은 말은?', f[1] + '____' + f[4], f[2], f[3], { kr: 1 }), { p: f[0] }); }
+  ];
+  return { make: () => { const q = pick(G)(); if (q.en == null) delete q.en; return q; }, gens: G };
+})();
+
 /* 기본 문제 세트 */
 const DEFAULT_SET = { id: 'default', title: 'Lesson 9 · 4차시 (교과서 128~129쪽)',
   passages: Object.entries(P).map(([id, v]) => ({ id, title: v.title, lines: v.lines })), questions: BANK };
@@ -159,6 +203,14 @@ function makeBoxes() {
 }
 const isKr = Q => Q.kr != null ? !!Q.kr : /[가-힣]/.test(Q.c.join(''));
 const BOXIMG = ['box1', 'box2', 'box3', 'box4', 'boxOwl', 'boxMirror'];
+
+/* ---------- 타이머: 서버의 limit 칸에 "끝나는 시각(ms) + 분/1000"을 담아 둠 (서버 코드 수정 없이) ---------- */
+const Timer = {
+  end: st => { const v = Number(st && st.limit) || 0; return v > 1e12 ? Math.floor(v) : 0; },
+  dur: st => { const v = Number(st && st.limit) || 0; return v > 1e12 ? Math.round((v - Math.floor(v)) * 1000) : 0; },
+  pack: (endMs, min) => Math.floor(endMs) + Math.max(1, Math.min(99, Math.round(min))) / 1000,
+  fmt: ms => { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+};
 
 /* 시계 그림: 9시 → 자정 */
 function clockSVG(prog, size) {

@@ -42,7 +42,13 @@ async function loadSet() {
 const pas = k => (SET.passages || []).find(x => x.id === k);
 function Q() {   /* 같은 문제가 다시 나와도 보기 순서를 섞어서 새 문제처럼 */
   ensureOrder();
-  const q = SET.questions[S.order[S.qi]]; if (!q) return q;
+  let q;
+  if (S.order[S.qi] < 0) {   /* 변형 문제: 한 번 만들면 저장해 두어 새로 고침해도 그대로 */
+    S.vq = S.vq || {};
+    if (!S.vq[S.qi]) { S.vq[S.qi] = VAR.make(); for (const k in S.vq) if (+k < S.qi - 2) delete S.vq[k]; }
+    q = S.vq[S.qi];
+  } else q = SET.questions[S.order[S.qi]];
+  if (!q) return q;
   S.perm = S.perm || {};
   let p = S.perm[S.qi];
   if (!Array.isArray(p) || p.length !== q.c.length) { p = S.perm[S.qi] = shuffle(q.c.map((_, k) => k)); for (const k in S.perm) if (+k < S.qi - 2) delete S.perm[k]; }
@@ -55,10 +61,18 @@ function ensureOrder() {   /* 남은 문제가 없으면 한 바퀴 더 섞어 �
   if (!S || !SET) return;
   while (S.qi >= S.order.length) {
     let more = shuffle(SET.questions.map((_, k) => k));
-    if (more.length > 1 && more[0] === S.order[S.order.length - 1]) more.push(more.shift());
+    /* 두 바퀴째부터: 교과서 문제 절반 + 새로 만든 변형 문제(-1) 절반 (기본 세트일 때) */
+    if (SET.id === 'default' && typeof VAR !== 'undefined') { const half = Math.ceil(more.length / 2); more = shuffle(more.slice(0, half).concat(Array(more.length - half).fill(-1))); }
+    if (more.length > 1 && more[0] >= 0 && more[0] === S.order[S.order.length - 1]) more.push(more.shift());
     S.order = S.order.concat(more);
   }
 }
+
+/* ---------- 타이머 (선생님이 정한 시간이 다 되면 자정) ---------- */
+let skew = 0;
+const tLeft = () => { const e = Timer.end(G); return e ? e - (Date.now() + skew) : null; };
+const timeUp = () => G && G.open === 'open' && tLeft() != null && tLeft() <= 0;
+function tProg() { const l = tLeft(), d = Timer.dur(G); return l == null || !d ? null : 1 - l / (d * 60000); }
 
 /* ---------- 서버 상태 반영 ---------- */
 function takeState(st, quiet) {
@@ -67,7 +81,7 @@ function takeState(st, quiet) {
   if (old && old.sid === st.sid) {
     st.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) deltas[i] = (deltas[i] || 0) + d; });
   }
-  G = st;
+  G = st; skew = (Number(st.now) || Date.now()) - Date.now();
   // 새 소식 (다른 친구가 우리 모둠에 영향을 준 일)
 }
 
@@ -78,7 +92,7 @@ function route() {
   if (S && S.group >= G.n) { S.screen = 'join'; draft.group = null; draft.name = S.name; joinMsg = '모둠 수가 바뀌었어요. 모둠을 다시 골라 주세요.'; }
   if (!S || S.screen === 'join') return;
   const before = S.screen;
-  if (G.open === 'closed') { S.screen = 'end'; if (S.pend && S.pend.length) S.pend = []; }
+  if (G.open === 'closed' || timeUp()) { S.screen = 'end'; if (S.pend && S.pend.length) S.pend = []; }
   else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
   else {
     if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
@@ -112,9 +126,10 @@ async function poll() {
 /* ---------- 화면 ---------- */
 function header() {
   const g = S && ['game', 'done'].includes(S.screen);
-  const prog = !S ? 0 : S.screen === 'end' ? 1 : S.screen === 'done' ? 1 : S.qi / (S.qi + 25);   /* 시계는 자정 가까이 천천히 다가가기만 해요 (끝은 선생님이) */
+  const tp = tProg();
+  const prog = !S ? 0 : S.screen === 'end' ? 1 : tp != null && G.open === 'open' ? tp : S.qi / (S.qi + 25);   /* 타이머가 있으면 남은 시간대로, 없으면 천천히 자정 쪽으로 */
   return `<header class="top"><div class="brand">${clockSVG(prog)}<div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
-  ${S && S.screen !== 'join' ? `<div class="toolbar">${g && S.screen === 'game' ? `<span class="chip">No. ${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
+  ${S && S.screen !== 'join' ? `<div class="toolbar">${g && S.screen === 'game' ? `<span class="chip">No. ${S.qi + 1}</span>${tLeft() != null && G.open === 'open' ? `<span class="chip tleft" id="tleft" aria-label="자정까지 남은 시간">🕛 ${Timer.fmt(tLeft())}</span>` : ''}` : ''}
     <span class="who"><span style="color:${TEAMC[S.group]}">◆</span> ${esc(G.names[S.group])} · ${esc(S.name)}</span>
     <button class="btn ghost sound" data-act="mute" aria-label="소리 켜기/끄기">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
 }
@@ -221,7 +236,7 @@ function doneScreen() {
 }
 function endScreen() {
   const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s, solo = r.length < 2 || r[1].s !== top;
-  return `${header()}<section class="shelf end" style="--endimg:url(${IMG.END})"><h2>댕… 댕… 자정이 되었어요</h2><p>가게 문이 닫히고, 오늘의 주인공 모둠이 정해졌어요.</p>
+  return `${header()}<section class="shelf end" style="--endimg:url(${IMG.END})"><div class="endclock">${clockSVG(1, 150)}</div><h2>댕… 댕… 자정이 되었어요</h2><p>가게 문이 닫히고, 오늘의 주인공 모둠이 정해졌어요.</p>
    <div class="podium">${r.map((x, k) => `<div class="rank ${k === 0 && solo ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}"><span>${k + 1}위 · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
    ${myStats()}</section>`;
 }
@@ -339,7 +354,7 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
   const me = loadMe();
   if (me && me.sid === G.sid && Array.isArray(me.order)) {
     S = me;
-    if (S.order.some(k => !SET.questions[k])) S.order = shuffle(SET.questions.map((_, k) => k));
+    if (S.order.some(k => k >= 0 && !SET.questions[k])) S.order = shuffle(SET.questions.map((_, k) => k));
     if (S.screen === 'done' && G.open === 'open' && endless()) S.screen = 'game';
     ensureOrder();
     if (S.phase === 'opening') setTimeout(openBox, 50);
@@ -347,6 +362,13 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
   }
   route(); render();
   SendQueue.flush(); sendBoxes();
+  setInterval(() => {   /* 1초마다 남은 시간·시계 바늘 고치기, 시간이 다 되면 자정 화면으로 */
+    if (!G || !S || S.screen !== 'game') return;
+    if (timeUp()) { route(); render(); return; }
+    const l = tLeft(), el = document.getElementById('tleft');
+    if (l != null && el) { el.textContent = '🕛 ' + Timer.fmt(l); el.classList.toggle('hurry', l < 60000); }
+    const c = app.querySelector('header .clock'), tp = tProg(); if (c && tp != null) c.outerHTML = clockSVG(tp);
+  }, 1000);
   setTimeout(function loop() { poll().finally(() => setTimeout(loop, 4500 + Math.random() * 1500)); }, 2000 + Math.random() * 2000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 })();

@@ -143,3 +143,12 @@ a.btn{text-decoration:none;display:inline-block}
   border:1px solid var(--brass-deep);border-radius:999px;padding:7px 14px;box-shadow:0 4px 12px rgba(0,0,0,.45);opacity:.8;transition:opacity .2s}
 .quicklink:hover,.quicklink:focus-visible{opacity:1}
 .wrap{padding-bottom:72px}
+
+/* 자정 타이머 */
+.timerbox{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.timerbox .trow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tcount{font-family:var(--f-en,inherit);font-size:2rem;color:var(--brass,#c9a24a);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.tcount.hurry{color:#e0675f;animation:tpulse 1s ease-in-out infinite}
+.bbhead .tcount{font-size:inherit}
+@keyframes tpulse{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.tcount.hurry{animation:none}}

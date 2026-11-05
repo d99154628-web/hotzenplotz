@@ -44,9 +44,14 @@ async function refresh() {
   refreshing = false;
 }
 let pendingOpen = null, lastWrite = 0;
+/* ---------- 자정 타이머 ---------- */
+let tskew = 0, autoClosing = false, tMin = Number(lsGet('mid_tmin')) || 10;
+const tEnd = () => Timer.end(D), tLeft = () => tEnd() ? tEnd() - (Date.now() + tskew) : null;
+const tRunning = () => D && D.open === 'open' && tLeft() != null && tLeft() > 0;
+function tProg() { const d = Timer.dur(D); return tRunning() && d ? 1 - tLeft() / (d * 60000) : null; }
 function take(r) {
   if (pendingOpen) r.open = pendingOpen;
-  const old = D; D = r;
+  const old = D; D = r; tskew = (Number(r.now) || Date.now()) - Date.now();
   D._d = {};
   if (old && old.sid === r.sid) r.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) D._d[i] = d; });
   if (!old || old.sid !== r.sid) tieNote = '';
@@ -107,7 +112,7 @@ function loginView() {
 function topBar() {
   const all = D.students.length, L = lim();
   const prog = all ? D.students.reduce((a, s) => a + Math.min(s.qi, L), 0) / (all * L) : 0;
-  return `<header class="top"><div class="brand">${clockSVG(D.open === 'closed' ? 1 : prog)}<div><small>교사용 화면 · ${esc(D.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
+  return `<header class="top"><div class="brand">${clockSVG(D.open === 'closed' ? 1 : tProg() != null ? tProg() : prog)}<div><small>교사용 화면 · ${esc(D.setTitle || DEFAULT_SET.title)}</small><h1>자정의 골동품 가게</h1></div></div>
    <div class="toolbar"><span class="sync" id="sync" role="status">방금 갱신</span>
     <button class="btn ghost" data-act="big">점수판 크게 보기</button></div></header>`;
 }
@@ -121,8 +126,12 @@ function controls() {
    <div class="ctlgrid">
     <div class="ctlrow"><span class="lab">모둠 수</span><div class="count-row" role="group" aria-label="모둠 수">${[2, 3, 4, 5, 6, 7, 8].map(k => `<button data-act="n" data-n="${k}" aria-pressed="${n === k}">${k}</button>`).join('')}</div>
      ${D.students.some(s => s.g >= n) ? `<p class="tnote warn">줄인 모둠에 들어가 있던 학생은 모둠을 다시 골라야 해요.</p>` : ''}</div>
-    <div class="ctlrow"><span class="lab">질문 수</span>
-     <p class="tnote">끝없이 계속 나와요. 문제 ${setSize()}개를 다 풀면 순서와 보기 위치를 다시 섞어서 이어서 나오고, 선생님이 <b>자정</b>을 누르면 끝나요.</p></div>
+    <div class="ctlrow"><span class="lab">자정 타이머</span>
+     ${tRunning() ? `<div class="timerbox"><b id="tcount" class="tcount">${Timer.fmt(tLeft())}</b><span>뒤에 자정이 돼요</span>
+       <div class="trow"><button class="btn ghost small" data-act="tadd" data-d="-1">−1분</button><button class="btn ghost small" data-act="tadd" data-d="1">+1분</button><button class="btn ghost small" data-act="tadd" data-d="5">+5분</button><button class="btn ghost small" data-act="toff">타이머 끄기</button></div></div>`
+     : `<div class="timerbox"><div class="trow"><select class="sel" data-act-change="tmin" aria-label="타이머 시간">${[3, 5, 7, 10, 12, 15, 20, 25, 30, 40].map(v => `<option value="${v}" ${v === tMin ? 'selected' : ''}>${v}분</option>`).join('')}</select>
+       <button class="btn small" data-act="tstart">${D.open === 'open' ? '타이머 시작' : '가게 문 열고 타이머 시작'}</button></div></div>`}
+     <small class="hint">시간이 다 되면 자동으로 자정이 되고, 학생 화면에도 자정 시계와 순위가 떠요. 질문은 끝없이 나오고, 두 바퀴째부터는 새로 만든 변형 문제가 섞여요.</small></div>
    </div>
    <div class="ctlrow"><span class="lab">모둠 이름</span><div class="names">${Array.from({ length: n }, (_, i) => `<label for="gn${i}"><span><span style="color:${TEAMC[i]}">◆</span> ${i + 1}번 모둠</span><input id="gn${i}" data-gn="${i}" value="${esc(D.allNames[i])}" maxlength="12"></label>`).join('')}</div>
     <div><button class="btn ghost small" data-act="names">모둠 이름 저장</button></div></div>
@@ -172,7 +181,7 @@ function monitor() {
 }
 function bigView() {
   const r = order(), top = Math.max(r[0].s, 1);
-  return `<section class="bigboard"><div class="bbhead">${clockSVG(D.open === 'closed' ? 1 : 0.5, 110)}<div><h1>${D.open === 'closed' ? '자정이 되었어요!' : '자정의 골동품 가게'}</h1><p>${D.open === 'closed' ? (tieNote ? esc(tieNote) : '오늘의 주인공 모둠은?') : D.open === 'open' ? '시계가 자정을 치기 전에 상자를 열어요' : '곧 가게 문이 열려요'}</p></div>
+  return `<section class="bigboard"><div class="bbhead">${clockSVG(D.open === 'closed' ? 1 : tProg() != null ? tProg() : 0.5, 110)}<div><h1>${D.open === 'closed' ? '자정이 되었어요!' : '자정의 골동품 가게'}</h1><p>${D.open === 'closed' ? (tieNote ? esc(tieNote) : '오늘의 주인공 모둠은?') : D.open === 'open' ? (tRunning() ? `자정까지 <b id="bigcount" class="tcount">${Timer.fmt(tLeft())}</b>` : '시계가 자정을 치기 전에 상자를 열어요') : '곧 가게 문이 열려요'}</p></div>
    <button class="btn ghost" data-act="back">← 교사용 화면</button></div>
    <ol class="bars">${r.map((x, k) => `<li style="--gc:${TEAMC[x.i]}" class="${k === 0 && x.s > 0 ? 'first' : ''}"><span class="bn">${k + 1}. ${esc(D.names[x.i])}${D.shields[x.i] ? ' 🧿' : ''}</span><span class="bt"><i style="width:${Math.max(x.s / top * 100, 2)}%"></i></span><span class="bs" data-sc data-from="${x.s - (D._d[x.i] || 0)}" data-to="${x.s}">${x.s - (D._d[x.i] || 0)}</span></li>`).join('')}</ol>
    <div class="bbfeed">${feedList(4)}</div></section>`;
@@ -197,7 +206,7 @@ function paint() {
   const typing = ctl && ctl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
   if (!typing && ctl) ctl.innerHTML = controls();
   const s = document.getElementById('sync'); if (s) { s.textContent = '방금 갱신'; s.classList.remove('err'); }
-  const brand = app.querySelector('header .clock'); if (brand) { const L = lim(), all = D.students.length; brand.outerHTML = clockSVG(D.open === 'closed' ? 1 : all ? D.students.reduce((a, x) => a + Math.min(x.qi, L), 0) / (all * L) : 0); }
+  const brand = app.querySelector('header .clock'); if (brand) { const L = lim(), all = D.students.length; brand.outerHTML = clockSVG(D.open === 'closed' ? 1 : tProg() != null ? tProg() : all ? D.students.reduce((a, x) => a + Math.min(x.qi, L), 0) / (all * L) : 0); }
 }
 
 async function config(p, okMsg) {
@@ -376,6 +385,7 @@ async function login() {
 app.addEventListener('input', e => { tInput(e.target); });
 app.addEventListener('change', e => {
   const t = e.target; if (tInput(t)) return;
+  if (t.dataset.actChange === 'tmin') { tMin = Number(t.value) || 10; lsSet('mid_tmin', String(tMin)); return; }
   if (t.dataset.actChange === 'limit') { const v = +t.value; config({ limit: v }, `한 사람이 ${v ? v + '문제씩' : '전체 문제를'} 풀어요.`); }
 });
 app.addEventListener('keydown', e => {
@@ -392,15 +402,29 @@ app.addEventListener('click', async e => {
     const v = b.dataset.v; if (v === D.open) return;
     if (v === 'open') SFX.bell(); else if (v === 'closed') SFX.midnight(); else SFX.pick();
     pendingOpen = v; D.open = v; saving = '학생 화면에 알리는 중…'; render();
-    config({ open: v }, { wait: '준비 중이에요. 학생들이 모둠을 고르고 기다려요.', open: '가게 문을 열었어요! 학생들이 풀기 시작해요.', closed: '자정이 되었어요. 학생 화면에 순위가 나와요.' }[v]);
+    const op = { open: v }; if (v !== 'open' || !tRunning()) op.limit = 0;   /* 손으로 바꾸면 지난 타이머는 지움 */
+    config(op, { wait: '준비 중이에요. 학생들이 모둠을 고르고 기다려요.', open: '가게 문을 열었어요! 학생들이 풀기 시작해요.', closed: '자정이 되었어요. 학생 화면에 순위가 나와요.' }[v]);
   }
   else if (a === 'n') { const n = +b.dataset.n; if (n === D.n) return; SFX.pick(); config({ n }, `${n}모둠으로 바꿨어요.`); }
   else if (a === 'names') saveNames();
   else if (a === 'adj') { SFX.click(); try { const r = await call({ action: 'adjust', group: +b.dataset.g, delta: +b.dataset.d }); if (r && r.ok) { lastWrite = Date.now(); take(r); paint(); } } catch (err) {} }
+  else if (a === 'tstart') {
+    const end = Date.now() + tskew + tMin * 60000; autoClosing = false;
+    if (D.open !== 'open') { SFX.bell(); pendingOpen = 'open'; D.open = 'open'; }
+    D.limit = Timer.pack(end, tMin); saving = '타이머를 맞추는 중…'; render();
+    config({ open: 'open', limit: Timer.pack(end, tMin) }, `타이머 시작! ${tMin}분 뒤에 자정이 돼요.`);
+  }
+  else if (a === 'tadd') {
+    if (!tRunning()) return;
+    const d = Number(b.dataset.d), end = Math.max(tEnd() + d * 60000, Date.now() + tskew + 15000), dur = Math.max(1, Timer.dur(D) + d);
+    D.limit = Timer.pack(end, dur); render();
+    config({ limit: Timer.pack(end, dur) }, d > 0 ? `${d}분 늘렸어요.` : `${-d}분 줄였어요.`);
+  }
+  else if (a === 'toff') { D.limit = 0; render(); config({ limit: 0 }, '타이머를 껐어요. 자정은 직접 눌러 주세요.'); }
   else if (a === 'reset') {
     if (!confirmReset) { confirmReset = true; paintCtl(); setTimeout(() => { confirmReset = false; if (view === 'main') paintCtl(); }, 6000); return; }
     confirmReset = false; saving = '새 수업을 준비하는 중…'; paintCtl();
-    try { const r = await call({ action: 'reset' }); if (r && r.ok) { take(r); saving = '새 수업을 시작했어요. 학생들은 모둠을 다시 골라요.'; SFX.saved(); } } catch (err) { saving = '!초기화하지 못했어요. 다시 눌러 주세요.'; }
+    try { const r = await call({ action: 'reset' }); if (r && r.ok) { take(r); try { const r2 = await call({ action: 'config', limit: 0 }); if (r2 && r2.ok) take(r2); } catch (e2) {} saving = '새 수업을 시작했어요. 학생들은 모둠을 다시 골라요.'; SFX.saved(); } } catch (err) { saving = '!초기화하지 못했어요. 다시 눌러 주세요.'; }
     render();
   }
   else if (a === 'big') { view = 'big'; render(); document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); }
@@ -415,6 +439,18 @@ document.documentElement.style.setProperty('--shopbg', `url(${IMG.MAIN})`);
     catch (e) { view = 'login'; saving = '서버에 연결하지 못했어요.'; render(); }
   } else render();
   setInterval(refresh, 3000);
+  setInterval(() => {   /* 1초마다 남은 시간 표시, 0이 되면 자동으로 자정 */
+    if (!D || D.open !== 'open' || !tEnd()) return;
+    const l = tLeft();
+    if (l <= 0) {
+      if (autoClosing) return; autoClosing = true;
+      SFX.midnight(); pendingOpen = 'closed'; D.open = 'closed'; saving = '시간이 다 됐어요. 자정!'; render();
+      config({ open: 'closed' }, '시간이 다 되어 자정이 되었어요. 학생 화면에 순위가 나와요.').finally(() => { autoClosing = false; });
+      return;
+    }
+    ['tcount', 'bigcount'].forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = Timer.fmt(l); el.classList.toggle('hurry', l < 60000); } });
+    const c = app.querySelector('header .clock, .bbhead .clock'), tp = tProg(); if (c && tp != null) c.outerHTML = clockSVG(tp, c.closest('.bbhead') ? 110 : 0);
+  }, 1000);
 })();
 </script>
 </body>

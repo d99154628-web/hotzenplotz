@@ -293,3 +293,12 @@ body{background-image:linear-gradient(rgba(24,17,12,.66),rgba(24,17,12,.86)),var
   .ledger,.shelf,.setup{padding:16px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* 타이머 */
+.chip.tleft{color:var(--brass,#c9a24a);font-variant-numeric:tabular-nums}
+.chip.tleft.hurry{color:#e0675f;animation:tpulse 1s ease-in-out infinite}
+@keyframes tpulse{50%{opacity:.45}}
+.endclock{display:flex;justify-content:center;margin:0 0 6px}
+.endclock .clock{width:150px;height:150px;animation:endring 1.2s ease-in-out 3}
+@keyframes endring{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg)}75%{transform:rotate(6deg)}}
+@media (prefers-reduced-motion:reduce){.chip.tleft.hurry,.endclock .clock{animation:none}}
