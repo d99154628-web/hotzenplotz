@@ -198,9 +198,20 @@ body.hasBg .lights{display:none}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 @media (max-width:760px){.opts{grid-template-columns:1fr}.teams{grid-template-columns:repeat(3,minmax(0,1fr))}.boxes{grid-template-columns:repeat(2,minmax(0,1fr))}.qMain{flex-direction:column}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* 첫 로딩 화면 — 그림이 다 준비될 때까지 가려 둠 */
+#loader{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:linear-gradient(180deg,#24140d 0%,#3d2014 45%,#6a3219 100%);color:var(--cream);font-family:var(--display);transition:opacity .35s ease}
+#loader.done{opacity:0;pointer-events:none}
+#loader .bun{font-size:72px;animation:bob 1s ease-in-out infinite}
+#loader .msg{font-size:28px}
+#loader .bar{width:min(360px,70vw);height:14px;border-radius:99px;background:rgba(255,245,223,.18);overflow:hidden}
+#loader .bar i{display:block;height:100%;width:0;background:var(--butter);border-radius:99px;transition:width .2s}
+@keyframes bob{50%{transform:translateY(-10px)}}
 </style>
 </head>
 <body>
+<div id="loader" role="status" aria-live="polite"><div class="bun" aria-hidden="true">🥐</div><div class="msg">빵을 굽고 있어요…</div><div class="bar"><i id="loaderBar"></i></div></div>
 <div id="bgLayer"></div>
 <div class="lights" aria-hidden="true"></div>
 
@@ -376,8 +387,11 @@ const BOX_COLORS=['#ef8fb0','#f2b94a','#7cc6a0','#8fb0f0','#c99af0','#f08a5d'];
 
 /* ---------- 파일 불러오기 (없으면 기본 디자인) ---------- */
 const IMG={},AUD={};
+const HAVE={bg_box:'jpg',bg_ending:'jpg',bg_game:'jpg',bg_lobby:'jpg',box_closed:'jpg',box_open:'jpg',prize_again:'jpg',prize_all:'jpg',prize_m1:'jpg',prize_p1:'jpg',prize_p2:'jpg',prize_p3:'jpg',prize_steal:'jpg',prize_stealTop:'jpg',prize_swap:'jpg',prize_swapLow:'jpg',prize_swapTop:'jpg',prize_x2:'jpg',prize_zero:'jpg',q_emotion:'jpg',q_listen:'jpg',q_meaning:'jpg',q_number:'jpg',q_realtalk:'jpg',q_song:'jpg',q_spell:'jpg',q_talk:'jpg',q_world:'jpg',react_correct:'jpg',react_wrong:'jpg',team_1:'jpg',team_2:'jpg',team_3:'jpg',team_4:'jpg',team_5:'jpg',team_6:'jpg',trophy:'jpg',logo_ending:'png',logo_title:'png'};
 function probe(name){if(IMG[name])return IMG[name];
-  return IMG[name]=new Promise(res=>{let i=0;const t=()=>{if(i>=EXT_I.length)return res(null);const u=A+name+'.'+EXT_I[i++];const im=new Image();im.onload=()=>res(u);im.onerror=t;im.src=u};t();});}
+  const exts=HAVE[name]?[HAVE[name]].concat(EXT_I.filter(e=>e!==HAVE[name])):EXT_I;
+  return IMG[name]=new Promise(res=>{let i=0;const t=()=>{if(i>=exts.length)return res(null);const u=A+name+'.'+exts[i++];const im=new Image();
+    im.onload=()=>{(im.decode?im.decode():Promise.resolve()).catch(()=>{}).then(()=>res(u))};im.onerror=t;im.src=u};t();});}
 function probeA(name){if(AUD[name])return AUD[name];
   return AUD[name]=new Promise(res=>{let i=0;const t=()=>{if(i>=EXT_A.length)return res(null);const u=A+name+'.'+EXT_A[i++];const a=new Audio();
     const ok=()=>{off();res(u)},bad=()=>{off();t()};const off=()=>{a.removeEventListener('canplay',ok);a.removeEventListener('error',bad)};
@@ -633,7 +647,19 @@ document.addEventListener('keydown',e=>{
   if(!$('boxLayer').hidden&&!boxDone&&['1','2','3','4','5','6'].includes(e.key))pickBox(+e.key-1);
 });
 try{speechSynthesis.getVoices()}catch(e){}
-setBg('setup');renderSetup();
+(function boot(){
+  const first=['bg_lobby','logo_title','team_1','team_2','team_3','team_4','team_5','team_6'];
+  const rest=Object.keys(HAVE).filter(k=>!first.includes(k));
+  let n=0;const bar=$('loaderBar');
+  const tick=()=>{n++;bar.style.width=Math.round(n/first.length*100)+'%'};
+  const ready=Promise.all(first.map(k=>probe(k).then(tick)));
+  const timeout=new Promise(r=>setTimeout(r,8000));
+  setBg('setup');renderSetup();
+  Promise.race([ready,timeout]).then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))).then(()=>{
+    const L=$('loader');L.classList.add('done');setTimeout(()=>L.remove(),400);
+    rest.forEach(k=>probe(k));
+  });
+})();
 </script>
 </body>
 </html>
