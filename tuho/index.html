@@ -19,6 +19,7 @@
     <span class="chip" id="teamChip"></span>
     <div class="score">🏹 <b id="teamScore">0</b>점</div>
     <div class="grow"></div>
+    <div class="prog" id="clock" style="display:none"></div>
     <div class="prog" id="prog"></div>
     <button class="iconbtn" id="boardBtn" title="모둠 순위">🏆 순위</button>
     <button class="iconbtn" id="musicBtn" title="배경 음악 켜기/끄기">🎵</button>
@@ -53,6 +54,34 @@ function loadMe() { try { return JSON.parse(lsGet('me') || 'null'); } catch (e) 
 function pendingPts() { return SendQueue.load().reduce((s, x) => s + (Number(x.pts) || 0), 0); }
 function teamTotal(g) { return ((SRV && SRV.totals[g]) || 0) + (me && me.group === g ? pendingPts() : 0); }
 function teamName(g) { return (SRV && SRV.names[g]) || (g + 1) + '모둠'; }
+const SOLO = () => !!(SRV && SRV.mode === 'solo');
+let skew = 0;                                   // 서버 시계 - 내 시계
+const srvNow = () => Date.now() + skew;
+/* 시간이 다 됐으면 서버 응답을 기다리지 않고 바로 시상식으로 */
+function openNow() { if (SRV && SRV.open === 'open' && SRV.ends && srvNow() >= SRV.ends) return 'closed'; return SRV ? SRV.open : 'wait'; }
+function leftMs() { if (!SRV) return 0; if (SRV.open === 'open' && SRV.ends) return Math.max(0, SRV.ends - srvNow()); if (SRV.open === 'wait' && SRV.left) return SRV.left; return SRV.open === 'wait' && SRV.dur ? SRV.dur * 60000 : 0; }
+const mmss = ms => { const t = Math.ceil(ms / 1000); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+/* 개인전 순위표: 서버 기록 + 아직 못 보낸 내 점수 */
+function soloRows() {
+  const arr = ((SRV && SRV.solo) || []).map(x => ({ id: x.id, n: x.n, p: x.p }));
+  if (me && me.id) { const mine = arr.find(x => x.id === me.id); if (mine) mine.p = Math.max(mine.p, me.pts || 0); else arr.push({ id: me.id, n: me.name, p: me.pts || 0 }); }
+  arr.sort((a, b) => b.p - a.p);
+  let rank = 0, prev = null; arr.forEach((x, k) => { if (x.p !== prev) { rank = k + 1; prev = x.p; } x.rk = rank; });
+  return arr;
+}
+function paintClock() {
+  const el = $('#clock'); if (!el) return;
+  const on = SRV && (SRV.ends || SRV.left || SRV.dur) && SRV.open !== 'closed';
+  el.style.display = on ? '' : 'none';
+  if (!on) return;
+  const ms = leftMs();
+  el.textContent = (SRV.open === 'wait' ? '⏸ ' : '⏱ ') + mmss(ms);
+  el.style.color = SRV.open === 'open' && ms <= 30000 ? 'var(--no)' : '';
+}
+setInterval(() => {
+  paintClock();
+  if (me && me.group != null && SRV && SRV.open === 'open' && openNow() === 'closed' && gateShown !== 'closed') { checkGate(); setTimeout(poll, 1500); }
+}, 1000);
 
 /* ---------- 상단 띠 ---------- */
 let shownScore = 0;
@@ -60,15 +89,24 @@ function paintTop() {
   if (!me || me.group == null || !SRV) { $('#top').classList.add('hidden'); $('#teacherLink').classList.remove('hidden'); return; }
   $('#top').classList.remove('hidden'); $('#teacherLink').classList.add('hidden');
   const g = me.group, c = TEAMC[g];
-  $('#teamChip').style.background = c;
-  $('#teamChip').textContent = `${TEAMI[g]} ${teamName(g)} · ${me.name}`;
-  const t = teamTotal(g);
+  $('#teamChip').style.background = SOLO() ? 'var(--ink)' : c;
+  $('#teamChip').textContent = SOLO() ? `🏹 개인전 · ${me.name}` : `${TEAMI[g]} ${teamName(g)} · ${me.name}`;
+  const t = SOLO() ? (me.pts || 0) : teamTotal(g);
+  paintClock();
   if (t !== shownScore) { countUp($('#teamScore'), shownScore, t); shownScore = t; }
   $('#prog').textContent = me.qi >= Q.length ? '축제 완주!' : `문제 ${Math.min(me.qi + 1, Q.length)} / ${Q.length}`;
   if (!$('#popboard').classList.contains('hidden')) $('#popboard').innerHTML = boardHTML(true);
 }
+function soloBoardHTML(withTitle, limit) {
+  const arr = soloRows(), max = Math.max(50, ...arr.map(x => x.p));
+  let list = arr.slice(0, limit || 10);
+  const mine = me && arr.find(x => x.id === me.id);
+  if (mine && !list.includes(mine)) list = list.concat([mine]);
+  return (withTitle ? `<h3 style="margin-bottom:10px">🏆 지금 개인 순위 <span class="muted" style="font-size:15px">(${arr.length}명)</span></h3>` : '') + `<div class="board">${list.map(x => `<div class="brow ${me && x.id === me.id ? 'me' : ''}"><div class="rk">${x.rk === 1 && x.p > 0 ? '👑' : x.rk}</div><div class="nm">${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:${me && x.id === me.id ? 'var(--red)' : 'var(--blue)'}"></i></div><div class="pt">${x.p}</div></div>`).join('') || '<p class="muted">아직 아무도 없어요</p>'}</div>`;
+}
 function boardHTML(withTitle) {
   if (!SRV) return '';
+  if (SOLO()) return soloBoardHTML(withTitle);
   const arr = SRV.names.map((n, i) => ({ i, n, p: teamTotal(i) })).sort((a, b) => b.p - a.p);
   const max = Math.max(50, ...arr.map(x => x.p));
   let rank = 0, prev = null;
@@ -82,7 +120,7 @@ function paintMute() { $('#muteBtn').textContent = muted ? '🔇' : '🔊'; }
 $('#muteBtn').onclick = () => { muted = !muted; lsSet('mute', muted ? '1' : '0'); paintMute(); if (muted) { Music.stop(); try { speechSynthesis.cancel(); } catch (e) {} } else musicForPhase(); };
 function paintMusic() { $('#musicBtn').style.opacity = Music.wantOff ? .45 : 1; $('#musicBtn').title = Music.wantOff ? '배경 음악 켜기' : '배경 음악 끄기'; }
 $('#musicBtn').onclick = () => { Music.toggle(); paintMusic(); musicForPhase(); };
-function musicForPhase() { if (!me || me.group == null || !SRV) return; if (SRV.open === 'closed') Music.award(); else if (me.phase !== 'wait') Music.festival(); }
+function musicForPhase() { if (!me || me.group == null || !SRV) return; if (openNow() === 'closed') Music.award(); else if (me.phase !== 'wait') Music.festival(); }
 paintMusic();
 paintMute();
 
@@ -93,12 +131,13 @@ async function poll() {
     if (!s || !s.ok) return;
     const first = !SRV;
     SRV = s;
+    if (s.now) skew = s.now - Date.now();
     if (me && me.sid && me.sid !== s.sid) {      // 선생님이 새 수업을 시작함
       me = null; lsDel('me'); lsDel('queue');
       showOverlay(`<div class="card center"><div class="trophy">🎐</div><h2 style="margin:10px 0">새 축제가 시작됐어요!</h2><p>선생님이 새로 시작하셨어요. 다시 이름을 적고 모둠을 골라 주세요.</p><button class="btn" onclick="hideOverlay();renderStart()">확인</button></div>`);
       return;
     }
-    if (me && me.group != null && me.group >= s.n) { me.group = null; saveMe(); renderStart(); return; }
+    if (me && me.group != null && me.group >= s.n && !SOLO()) { me.group = null; saveMe(); renderStart(); return; }
     if (first) route();
     else if (!me || me.group == null) { if ($('#startForm')) paintGroups(); }
     paintTop();
@@ -114,13 +153,14 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 let gateShown = '';
 function checkGate() {
   if (!me || me.group == null || !SRV) return;
-  if (SRV.open === 'closed') { if (gateShown !== 'closed') { gateShown = 'closed'; showAward(); } else updateAward(); return; }
-  if (SRV.open === 'wait' && me.phase !== 'wait') {
+  const open = openNow();
+  if (open === 'closed') { if (gateShown !== 'closed') { gateShown = 'closed'; showAward(); } else updateAward(); return; }
+  if (open === 'wait' && me.phase !== 'wait') {
     if (gateShown !== 'pause') { gateShown = 'pause'; showOverlay(`<div class="card center"><div class="trophy">⏸️</div><h2 style="margin:10px 0">잠깐! 쉬는 시간이에요</h2><p>선생님이 축제를 잠시 멈추셨어요. 앞을 봐 주세요.</p></div>`); }
     return;
   }
   if (gateShown) { gateShown = ''; hideOverlay(); }
-  if (me.phase === 'wait' && SRV.open === 'open') { me.phase = 'story'; me.story = 0; saveMe(); route(); }
+  if (me.phase === 'wait' && open === 'open') { me.phase = 'story'; me.story = 0; saveMe(); route(); }
 }
 function showOverlay(html) { $('#overlay').innerHTML = `<div class="overlay">${html}</div>`; }
 function hideOverlay() { $('#overlay').innerHTML = ''; }
@@ -155,7 +195,7 @@ function renderStart() {
     <p class="lead en" style="font-size:22px">Do you know anything about Tuho?</p>
     <div class="form" id="startForm">
       <input class="input" id="nm" maxlength="12" placeholder="내 이름" value="${esc(name)}" autocomplete="off">
-      <div class="muted">우리 모둠을 골라요</div>
+      <div class="muted" id="groupsLbl">우리 모둠을 골라요</div>
       <div class="groups" id="groups"></div>
       <button class="btn" id="enter" disabled>축제장 입장! 🎐</button>
       <div class="muted" id="startMsg" style="font-size:15px"></div>
@@ -168,11 +208,13 @@ function renderStart() {
 }
 function paintGroups() {
   const box = $('#groups'); if (!box || !SRV) return;
+  if (SOLO()) { box.innerHTML = `<div class="muted" style="font-size:17px">🏹 오늘은 <b style="color:var(--red)">개인전</b>이에요! 이름만 적고 입장해요.</div>`; $('#groupsLbl').style.display = 'none'; pickGroup = 0; checkStart(); return; }
+  $('#groupsLbl').style.display = '';
   if (pickGroup >= SRV.n) pickGroup = -1;
   box.innerHTML = SRV.names.map((n, i) => `<button class="gbtn ${pickGroup === i ? 'on' : ''}" style="${pickGroup === i ? `background:${TEAMC[i]};` : `border-color:${TEAMC[i]};`}" data-g="${i}">${TEAMI[i]} ${esc(n)}</button>`).join('');
   box.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { SFX.click(); pickGroup = Number(b.dataset.g); paintGroups(); checkStart(); });
 }
-function checkStart() { const ok = $('#nm').value.trim().length > 0 && pickGroup >= 0; $('#enter').disabled = !ok; }
+function checkStart() { if (!$('#nm')) return; const ok = $('#nm').value.trim().length > 0 && pickGroup >= 0; $('#enter').disabled = !ok; }
 async function join() {
   if (busy) return; busy = true;
   const name = $('#nm').value.trim().slice(0, 12);
@@ -180,12 +222,13 @@ async function join() {
   lsSet('name', name);
   const id = (me && me.id) || uid();
   try {
+    if (SOLO()) pickGroup = 0;
     const r = await api({ action: 'join', sid: SRV.sid, id, group: pickGroup, name }, 3);
     if (!r.ok) { if (r.state) SRV = r.state; $('#startMsg').textContent = '다시 한 번 눌러 주세요.'; paintGroups(); $('#enter').disabled = false; return; }
-    SRV = r;
+    SRV = r; if (r.now) skew = r.now - Date.now();
     const keep = me && me.sid === SRV.sid && me.id === id;
     me = keep ? Object.assign(me, { name, group: pickGroup }) : { id, name, group: pickGroup, sid: SRV.sid, qi: 0, pts: 0, phase: 'wait', story: 0 };
-    if (!keep) me.phase = SRV.open === 'open' ? 'story' : 'wait';
+    if (!keep) me.phase = openNow() === 'open' ? 'story' : 'wait';
     saveMe(); SFX.start();
     route(); checkGate();
   } catch (e) { $('#startMsg').textContent = '연결이 잠깐 끊겼어요. 다시 눌러 주세요.'; $('#enter').disabled = false; }
@@ -197,7 +240,8 @@ function renderWait() {
   app.innerHTML = `<section class="card center fade" style="margin-top:20px">
     <div class="art" style="width:130px;height:130px;margin:0 auto;animation:bob 2.4s ease-in-out infinite">${ART.mascot}</div>
     <h2 style="font-size:32px;margin:12px 0 6px">입장 완료!</h2>
-    <p style="font-size:20px"><b style="color:${TEAMC[me.group]}">${TEAMI[me.group]} ${esc(teamName(me.group))}</b> ${esc(me.name)}, 어서 와요.</p>
+    <p style="font-size:20px">${SOLO() ? `<b style="color:var(--red)">🏹 개인전</b>` : `<b style="color:${TEAMC[me.group]}">${TEAMI[me.group]} ${esc(teamName(me.group))}</b>`} ${esc(me.name)}, 어서 와요.</p>
+    ${SRV && SRV.dur ? `<p style="font-size:18px">⏱ 제한 시간 <b>${SRV.dur}분</b> · 시간이 끝나면 순위가 떠요!</p>` : ''}
     <p class="muted">선생님이 "축제 시작!"을 누르면 바로 시작해요. 잠시만 기다려요.</p>
   </section>`;
 }
@@ -211,12 +255,13 @@ const STORY = [
   { pic: 'story_3', html: `<p>🏹 <b>처음에 정답</b>을 맞히면 <b>투호 화살</b>을 던질 수 있어요.</p>
      <p>항아리에는 구멍이 세 개! <b>왼쪽 귀, 가운데 입, 오른쪽 귀</b>. 어느 구멍이 높은 점수인지는 던지기 전엔 아무도 몰라요. 운이 좋으면 <b style="color:#b8860b">황금 화살 50점</b>!</p>
      <p>두 번째에 맞히면 <b>연습 화살 +5점</b>. 틀려도 점수는 깎이지 않아요.</p>
-     <p>모은 점수는 모두 <b>우리 모둠 점수</b>로! 가장 높은 모둠이 <b>투호 챔피언</b>이에요. 🏆</p>` }
+     <p class="teamonly">모은 점수는 모두 <b>우리 모둠 점수</b>로! 가장 높은 모둠이 <b>투호 챔피언</b>이에요. 🏆</p>
+     <p class="soloonly">오늘은 <b>개인전</b>! 모은 점수가 <b>내 점수</b>예요. 가장 높은 친구가 <b>투호 챔피언</b>이에요. 🏆</p>` }
 ];
 function renderStory() {
   const k = me.story || 0, s = STORY[k];
   app.innerHTML = `<section class="card fade">
-    <div class="story"><img class="scene" src="img/${s.pic}.webp" alt=""><div class="storytext">${s.html}</div></div>
+    <div class="story"><img class="scene" src="img/${s.pic}.webp" alt=""><div class="storytext">${s.html.replace(SOLO() ? /<p class="teamonly">[\s\S]*?<\/p>/ : /<p class="soloonly">[\s\S]*?<\/p>/, '')}${k === STORY.length - 1 && SRV && SRV.dur ? `<p>⏱ 제한 시간은 <b>${SRV.dur}분</b>! 시간이 끝나면 순위가 떠요.</p>` : ''}</div></div>
     <div class="dots">${STORY.map((_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</div>
     <div class="row" style="justify-content:center;margin-top:16px">
       ${k > 0 ? `<button class="btn ghost" id="prev">← 앞으로</button>` : ''}
@@ -344,7 +389,7 @@ function afterRight(ans) {
     $('#toThrow').onclick = () => { SFX.click(); renderThrow(ans); };
     $('#toThrow').focus();
   } else {
-    $('#fb').innerHTML = `<div class="feedback good fade"><div class="art face">${ART.happy}</div><b>맞았어요! 👍</b><span>연습 화살 <b style="font-size:19px">+5점</b>이 우리 모둠에 들어갔어요.</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
+    $('#fb').innerHTML = `<div class="feedback good fade"><div class="art face">${ART.happy}</div><b>맞았어요! 👍</b><span>연습 화살 <b style="font-size:19px">+5점</b>이 ${SOLO() ? '내 점수에' : '우리 모둠에'} 들어갔어요.</span><div class="grow"></div><button class="btn" id="nx">다음 →</button></div>`;
     commit(ans, true, 5, '');
     $('#nx').onclick = () => { SFX.click(); next(); };
   }
@@ -445,7 +490,7 @@ function landed(h, ans) {
   setTimeout(() => { [0, 1, 2].filter(k => k !== h).forEach(k => setTag(k, vals[k], false)); }, 700);
   const res = $('#res');
   res.className = 'result' + (gold ? ' gold' : '');
-  res.innerHTML = gold ? `✨ 황금 화살! <b>+${pts}점</b> ✨` : `쏙! ${HOLES[h].nm}에 들어갔어요. <b style="color:${TEAMC[me.group]}">+${pts}점</b>`;
+  res.innerHTML = gold ? `✨ 황금 화살! <b>+${pts}점</b> ✨` : `쏙! ${HOLES[h].nm}에 들어갔어요. <b style="color:${SOLO() ? 'var(--red)' : TEAMC[me.group]}">+${pts}점</b>`;
   res.style.animation = 'pop .45s both';
   setTimeout(() => { gold ? SFX.gold() : SFX.coin(pts); if (gold || pts === 30) confetti(gold ? 90 : 40); }, 250);
   commit(ans, true, pts, vals.join(','));
@@ -474,7 +519,7 @@ function renderDone() {
   app.innerHTML = `<section class="fade">
     <div class="card center"><div class="art trophy" style="width:120px;height:120px;margin:0 auto">${ART.happy}</div>
       <h2 style="font-size:34px;margin:8px 0">축제 완주!</h2>
-      <p style="font-size:20px">${esc(me.name)}, 여섯 부스를 모두 돌았어요.<br>내가 우리 모둠에 보탠 점수는 <b style="color:${TEAMC[me.group]};font-size:28px">${me.pts}점</b>!</p>
+      <p style="font-size:20px">${esc(me.name)}, 여섯 부스를 모두 돌았어요.<br>${SOLO() ? '내 점수는' : '내가 우리 모둠에 보탠 점수는'} <b style="color:${SOLO() ? 'var(--red)' : TEAMC[me.group]};font-size:28px">${me.pts}점</b>!</p>
       <div class="mapgrid" style="grid-template-columns:repeat(6,1fr);gap:8px">${BOOTHS.map(b => `<div class="center"><div class="art" style="width:54px;height:54px;margin:0 auto">${ART[b.art]}</div><div class="art" style="width:40px;height:40px;margin:4px auto 0">${ART.stamp}</div></div>`).join('')}</div>
       <p class="muted" style="margin-top:14px">친구들이 다 끝날 때까지 기다려요. 짝과 함께 <b class="en">Do you know anything about ~?</b> 묻고 답하기를 해 볼까요?</p>
     </div>
@@ -484,7 +529,19 @@ function renderDone() {
 setInterval(() => { if (me && me.phase === 'done' && $('#doneBoard')) $('#doneBoard').innerHTML = boardHTML(true); }, 6000);
 
 /* ---------- 9. 시상식 ---------- */
+function soloAwardHTML() {
+  const arr = soloRows(), mine = arr.find(x => x.id === me.id), top3 = arr.filter(x => x.rk <= 3 && x.p > 0).slice(0, 6);
+  const medal = r => ['🥇', '🥈', '🥉'][r - 1] || r;
+  return `<div class="card center awardcard" style="--bg:url(img/bg_award.webp)"><div class="art trophy" style="width:110px;height:110px;margin:0 auto">${ART.trophy}</div>
+    <div class="sub jua" style="color:var(--red);letter-spacing:2px;margin-top:6px">세계 전통 놀이 축제 · 개인전 시상식</div>
+    <h2 style="font-size:30px;margin:6px 0 10px">⏰ 시간 끝! 투호 챔피언은?</h2>
+    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">${top3.map(x => `<div class="card" style="padding:10px 16px;min-width:130px${x.id === me.id ? ';outline:4px solid var(--red)' : ''}"><div style="font-size:38px">${medal(x.rk)}</div><div class="jua" style="font-size:22px">${esc(x.n)}</div><div>${x.p}점</div></div>`).join('') || '<p class="muted">아직 점수가 없어요</p>'}</div>
+    ${mine ? `<p style="font-size:22px;margin:4px 0">나는 <b style="color:var(--red);font-size:30px">${mine.rk}등</b> / ${arr.length}명 · <b>${mine.p}점</b>${mine.rk <= 3 && mine.p > 0 ? ' 🎉' : ''}</p>` : ''}
+    <p class="muted">모두 정말 잘했어요. <span class="en">Good job, everyone!</span></p>
+    <div style="text-align:left;margin-top:10px;max-height:40vh;overflow:auto">${soloBoardHTML(false, 100)}</div></div>`;
+}
 function awardHTML() {
+  if (SOLO()) return soloAwardHTML();
   const arr = SRV.names.map((n, i) => ({ i, n, p: SRV.totals[i] || 0 })).sort((a, b) => b.p - a.p);
   const top = arr[0].p, winners = arr.filter(x => x.p === top && top > 0);
   const mine = winners.some(x => x.i === me.group);
@@ -495,7 +552,7 @@ function awardHTML() {
     ${mine ? `<p style="font-size:20px;color:${TEAMC[me.group]}"><b>우리 모둠이 우승했어요! 🎉</b></p>` : `<p class="muted">모두 정말 잘했어요. <span class="en">Good job, everyone!</span></p>`}
     <div style="text-align:left;margin-top:10px">${boardHTML(false)}</div></div>`;
 }
-function showAward() { showOverlay(awardHTML()); SFX.fanfare(); confetti(120); }
+function showAward() { try { speechSynthesis.cancel(); } catch (e) {} showOverlay(awardHTML()); SFX.fanfare(); confetti(120); }
 document.addEventListener('pointerdown', () => { if (!Music.el) musicForPhase(); }, { passive: true });
 function updateAward() { if ($('#overlay').innerHTML) showOverlay(awardHTML()); }
 

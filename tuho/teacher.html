@@ -45,6 +45,15 @@ main{max-width:1280px}
 .big .bar{height:46px}
 .big .board{gap:22px;margin-top:30px}
 .gate{max-width:420px;margin:80px auto}
+.clock{font-family:'Jua',sans-serif;font-size:30px;padding:4px 14px;border:2px solid var(--ink);border-radius:14px;background:#fff;min-width:110px;text-align:center}
+.clock.low{color:var(--no)}
+.solo{display:grid;grid-template-columns:60px 1fr 150px 80px 90px 130px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px dashed var(--line);font-size:17px}
+.solo .rk{font-family:'Jua',sans-serif;font-size:22px;text-align:center}
+.solo .p{font-family:'Jua',sans-serif;font-size:22px;text-align:right}
+.solo button{border:1.5px solid var(--ink);background:#fff;border-radius:10px;padding:2px 9px;font-family:'Jua',sans-serif;font-size:15px}
+.podium{display:flex;justify-content:center;gap:24px;margin:20px 0}
+.podium div{background:var(--card);border:3px solid var(--ink);border-radius:20px;padding:16px 26px;text-align:center;min-width:200px}
+.podium b{display:block;font-size:56px}.podium span{font-family:'Jua',sans-serif;font-size:34px;display:block}
 @media (max-width:800px){.side{grid-template-columns:1fr}}
 </style>
 </head>
@@ -71,19 +80,34 @@ function gate(msg) {
   $('#go').onclick = async () => {
     PW = $('#pw').value.trim(); $('#go').disabled = true;
     const r = await call({ action: 'dash' });
-    if (r && r.ok) { sessionStorage.setItem('tuho-pw', PW); D = r; render(); start(); }
+    if (r && r.ok) { sessionStorage.setItem('tuho-pw', PW); setD(r); render(); start(); }
     else { PW = ''; gate(r && r.error === 'pw' ? '비밀번호가 맞지 않아요.' : '서버에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.'); }
   };
 }
 async function call(p) { try { return await api(Object.assign({ pw: PW }, p), 2); } catch (e) { return null; } }
 function start() { clearInterval(timer); timer = setInterval(refresh, 4000); }
-async function refresh() { if (editing) return; const r = await call({ action: 'dash' }); if (r && r.ok) { D = r; render(); } else if (r && r.error === 'pw') { sessionStorage.removeItem('tuho-pw'); gate('비밀번호를 다시 입력해 주세요.'); } }
+async function refresh() { if (editing) return; const r = await call({ action: 'dash' }); if (r && r.ok) { setD(r); render(); } else if (r && r.error === 'pw') { sessionStorage.removeItem('tuho-pw'); gate('비밀번호를 다시 입력해 주세요.'); } }
 
 function boardRows() {
+  if (SOLO()) { const arr = soloRanked(), max = Math.max(50, ...arr.map(x => x.p)); return `<div class="board">${arr.slice(0, 10).map(x => `<div class="brow"><div class="rk">${x.rk === 1 && x.p > 0 ? '👑' : x.rk}</div><div class="nm">${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:var(--blue)"></i></div><div class="pt">${x.p}</div></div>`).join('') || '<p class="small">아직 아무도 없어요</p>'}</div>`; }
   const arr = D.names.map((n, i) => ({ i, n, p: D.totals[i] || 0 })).sort((a, b) => b.p - a.p);
   const max = Math.max(50, ...arr.map(x => x.p)); let rank = 0, prev = null;
   return `<div class="board">${arr.map((x, k) => { if (x.p !== prev) { rank = k + 1; prev = x.p; } return `<div class="brow"><div class="rk">${rank === 1 && x.p > 0 ? '👑' : rank}</div><div class="nm">${TEAMI[x.i]} ${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:${TEAMC[x.i]}"></i></div><div class="pt">${x.p}</div></div>`; }).join('')}</div>`;
 }
+let skew = 0;
+const srvNow = () => Date.now() + skew;
+const SOLO = () => D && D.mode === 'solo';
+const mmss = ms => { const t = Math.ceil(ms / 1000); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+function leftMs() { if (!D) return 0; if (D.open === 'open' && D.ends) return Math.max(0, D.ends - srvNow()); if (D.open === 'wait' && D.left) return D.left; return D.open === 'wait' && D.dur ? D.dur * 60000 : 0; }
+function soloRanked() { const arr = (D.solo || []).slice().sort((a, b) => b.p - a.p); let rank = 0, prev = null; arr.forEach((x, k) => { if (x.p !== prev) { rank = k + 1; prev = x.p; } x.rk = rank; }); return arr; }
+let lastOpen = '';
+function setD(r) { D = r; if (r.now) skew = r.now - Date.now(); if (lastOpen === 'open' && D.open === 'closed') bigOn = true; if (D.open !== 'closed') paintBig.done = false; lastOpen = D.open; }
+setInterval(() => {
+  const el = $('#clock'); if (!D || !el) return;
+  const ms = leftMs(); el.textContent = D.open === 'closed' ? '끝' : (D.dur || D.ends || D.left) ? (D.open === 'wait' ? '⏸ ' : '⏱ ') + mmss(ms) : '제한 없음';
+  el.classList.toggle('low', D.open === 'open' && !!D.ends && ms <= 30000);
+  if (D.open === 'open' && D.ends && ms <= 0 && !el.dataset.fired) { el.dataset.fired = '1'; refresh(); }
+}, 1000);
 function ago(ms) { const s = Math.round((Date.now() - ms) / 1000); return s < 60 ? `${s}초 전` : `${Math.round(s / 60)}분 전`; }
 
 function render() {
@@ -95,15 +119,17 @@ function render() {
   <div class="card" style="padding:16px 20px">
     <div class="bar2">
       <div class="art" style="width:46px;height:46px">${ART.tuho}</div>
-      <div><h1 style="font-size:28px">투호 챔피언십 · 교사용</h1><div class="small">Lesson 11 2차시 (교과서 152~153쪽) · 참가 ${joined}명 · 완주 ${done}명${DEMO ? ' · <b style="color:var(--no)">연습 모드</b>' : ''}</div></div>
+      <div><h1 style="font-size:28px">투호 챔피언십 · 교사용 <span style="font-size:20px;color:var(--red)">${SOLO() ? '🏹 개인전' : '👥 모둠전'}</span></h1><div class="small">Lesson 11 2차시 (교과서 152~153쪽) · 참가 ${joined}명 · 완주 ${done}명${DEMO ? ' · <b style="color:var(--no)">연습 모드</b>' : ''}</div></div>
       <div class="grow"></div>
+      <div class="clock" id="clock">--:--</div>
+      <button class="btn small ghost" data-time="1" title="남은 시간 1분 늘리기">+1분</button><button class="btn small ghost" data-time="-1" title="남은 시간 1분 줄이기">−1분</button>
       <div class="seg" id="seg">${[['wait', '⏸ 입장 준비'], ['open', '▶ 축제 시작'], ['closed', '🏆 시상식']].map(([o, t]) => `<button data-o="${o}" class="${D.open === o ? 'on' : ''}">${t}</button>`).join('')}</div>
       <button class="btn small yellow" id="bigBtn">📺 전광판</button>
     </div>
-    <p class="small" style="margin:10px 0 0">입장 준비: 학생들이 이름과 모둠만 고르고 기다려요. · 축제 시작: 문제를 풀어요 (중간에 '입장 준비'를 누르면 잠깐 멈춤). · 시상식: 모든 학생 화면에 우승 모둠이 떠요.</p>
+    <p class="small" style="margin:10px 0 0">입장 준비: 학생들이 이름과 모둠만 고르고 기다려요. · 축제 시작: 문제를 풀어요 (중간에 '입장 준비'를 누르면 잠깐 멈춤). · 시상식: 모든 학생 화면에 순위가 떠요. · 제한 시간이 끝나면 자동으로 시상식이 열려요.</p>
   </div>
 
-  <div class="grid">${D.names.map((n, g) => {
+  ${SOLO() ? soloGrid(studs) : `<div class="grid">${D.names.map((n, g) => {
     const mem = studs.filter(s => s.g === g).sort((a, b) => b.qi - a.qi);
     return `<div class="gcard"><div class="ghead" style="background:${TEAMC[g]}"><span style="font-size:22px">${TEAMI[g]}</span><span class="nm">${esc(n)}</span><span class="tot">${D.totals[g] || 0}점</span></div>
       <div class="adj">점수 <button data-adj="${g}" data-d="5">+5</button><button data-adj="${g}" data-d="10">+10</button><button data-adj="${g}" data-d="-5">−5</button><button data-adj="${g}" data-d="-10">−10</button><span class="grow"></span>${mem.length}명</div>
@@ -114,7 +140,7 @@ function render() {
           <div><div class="mbar"><i style="width:${pct}%;background:${TEAMC[g]}"></i></div><div class="s">${s.qi} / ${Q.length}</div></div>
           <div class="p">+${s.pts}</div></div>`;
       }).join('') : `<div class="small" style="padding:12px 14px">아직 들어온 학생이 없어요</div>`}</div>`;
-  }).join('')}</div>
+  }).join('')}</div>`}
 
   <div class="side">
     <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : '🏹'} <b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b> ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
@@ -122,7 +148,12 @@ function render() {
   </div>
 
   <div class="card" style="margin-top:16px">
-    <h3>⚙️ 모둠 설정</h3>
+    <h3>⚙️ 게임 설정</h3>
+    <div class="row" style="margin-top:10px">게임 방식
+      <select id="mode" class="input" style="width:140px;font-size:18px;padding:6px" ${D.open !== 'wait' ? 'disabled' : ''}><option value="team" ${!SOLO() ? 'selected' : ''}>👥 모둠전</option><option value="solo" ${SOLO() ? 'selected' : ''}>🏹 개인전</option></select>
+      제한 시간
+      <select id="dur" class="input" style="width:130px;font-size:18px;padding:6px">${[0, 3, 5, 7, 10, 12, 15, 20, 25, 30, 40].map(k => `<option value="${k}" ${k === D.dur ? 'selected' : ''}>${k ? k + '분' : '제한 없음'}</option>`).join('')}</select>
+      <span class="small">게임 방식은 '입장 준비'일 때만 바꿀 수 있어요. 바꾼 뒤엔 '새 수업 시작'을 눌러 학생들이 다시 들어오게 하면 깔끔해요. 시간은 '축제 시작'을 누를 때부터 흘러요.</span></div>
     <div class="row" style="margin-top:10px">모둠 수
       <select id="n" class="input" style="width:90px;font-size:18px;padding:6px">${[2, 3, 4, 5, 6, 7, 8].map(k => `<option ${k === D.n ? 'selected' : ''}>${k}</option>`).join('')}</select>
       <span class="small">모둠 이름은 아래에서 바꿀 수 있어요.</span></div>
@@ -139,23 +170,36 @@ function render() {
 
 function bind() {
   app.querySelectorAll('#seg button').forEach(b => b.onclick = async () => {
-    if (b.dataset.o === 'closed' && !confirm('시상식을 열까요? 모든 학생 화면에 우승 모둠이 나타나요.')) return;
-    const r = await call({ action: 'config', open: b.dataset.o }); if (r && r.ok) { D = r; render(); if (b.dataset.o === 'closed') { bigOn = true; paintBig(); } }
+    if (b.dataset.o === 'closed' && !confirm('시상식을 열까요? 모든 학생 화면에 순위가 나타나요.')) return;
+    const r = await call({ action: 'config', open: b.dataset.o }); if (r && r.ok) { setD(r); render(); if (b.dataset.o === 'closed') { bigOn = true; paintBig(); } }
   });
-  app.querySelectorAll('[data-adj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjust', group: Number(b.dataset.adj), delta: Number(b.dataset.d) }); if (r && r.ok) { D = r; render(); } });
-  app.querySelectorAll('.names input, #n').forEach(el => { el.onfocus = () => editing = true; el.onblur = () => setTimeout(() => editing = false, 300); });
+  app.querySelectorAll('[data-adj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjust', group: Number(b.dataset.adj), delta: Number(b.dataset.d) }); if (r && r.ok) { setD(r); render(); } });
+  app.querySelectorAll('.names input, #n, #mode, #dur').forEach(el => { el.onfocus = () => editing = true; el.onblur = () => setTimeout(() => editing = false, 300); });
   $('#saveCfg').onclick = async () => {
     const names = []; for (let i = 0; i < 8; i++) names.push($('#nm' + i).value);
     editing = false;
-    const r = await call({ action: 'config', n: Number($('#n').value), names }); if (r && r.ok) { D = r; render(); }
+    const r = await call({ action: 'config', n: Number($('#n').value), names, mode: $('#mode').value, dur: Number($('#dur').value) }); if (r && r.ok) { setD(r); render(); }
   };
   $('#reset').onclick = async () => {
     if (!confirm('새 수업을 시작할까요?\n모둠 점수와 학생 기록이 모두 지워지고, 학생들은 다시 입장해야 해요.\n(구글 시트의 "기록" 탭은 남아 있어요.)')) return;
-    const r = await call({ action: 'reset' }); if (r && r.ok) { D = r; render(); }
+    const r = await call({ action: 'reset' }); if (r && r.ok) { setD(r); render(); }
   };
+  app.querySelectorAll('[data-time]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'time', delta: Number(b.dataset.time) }); if (r && r.ok) { setD(r); render(); } });
+  app.querySelectorAll('[data-sadj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjustStu', id: b.dataset.sadj, delta: Number(b.dataset.d) }); if (r && r.ok) { setD(r); render(); } });
   $('#bigBtn').onclick = () => { bigOn = true; paintBig(); };
 }
 function paintBig() {
+  if (SOLO()) {
+    const arr = soloRanked(), podium = arr.filter(x => x.rk <= 3 && x.p > 0).slice(0, 6);
+    $('#bigview').innerHTML = `<div class="big"><div class="dan" style="margin:-30px -6vw 20px"></div>
+      <h1>${D.open === 'closed' ? '🏆 개인전 투호 챔피언!' : '🏹 개인전 전광판'}</h1>
+      ${D.open === 'closed' ? `<div class="podium">${podium.map(x => `<div><b>${['🥇', '🥈', '🥉'][x.rk - 1]}</b><span>${esc(x.n)}</span>${x.p}점</div>`).join('')}</div>` : ''}
+      ${boardRows()}
+      <div class="center" style="margin-top:30px"><button class="btn ghost" id="closeBig">닫기</button></div></div>`;
+    $('#closeBig').onclick = () => { bigOn = false; $('#bigview').innerHTML = ''; };
+    if (D.open === 'closed' && !paintBig.done) { paintBig.done = true; try { SFX.fanfare(); } catch (e) {} }
+    return;
+  }
   const top = Math.max(0, ...D.totals), win = D.names.map((n, i) => ({ n, i, p: D.totals[i] })).filter(x => x.p === top && top > 0);
   $('#bigview').innerHTML = `<div class="big"><div class="dan" style="margin:-30px -6vw 20px"></div>
     <h1>${D.open === 'closed' ? '🏆 투호 챔피언!' : '🏹 투호 챔피언십 전광판'}</h1>
@@ -165,7 +209,20 @@ function paintBig() {
   $('#closeBig').onclick = () => { bigOn = false; $('#bigview').innerHTML = ''; };
 }
 
-if (PW) { call({ action: 'dash' }).then(r => { if (r && r.ok) { D = r; render(); start(); } else gate(); }); }
+function soloGrid(studs) {
+  const arr = soloRanked(), by = {}; studs.forEach(s => by[s.id] = s);
+  return `<div class="card" style="margin-top:16px;padding:0;overflow:hidden">
+    <div class="solo" style="background:var(--ink);color:#fff;font-family:'Jua',sans-serif"><span>순위</span><span>이름</span><span>진행</span><span>첫 정답</span><span style="text-align:right">점수</span><span>점수 고치기</span></div>
+    ${arr.map(x => { const s = by[x.id] || { qi: 0, first: 0, updated: 0 }; const on = Date.now() - s.updated < 90000, pct = Math.round(s.qi / Q.length * 100), md = ['🥇', '🥈', '🥉'][x.rk - 1];
+      return `<div class="solo"><span class="rk">${md && x.p > 0 ? md : x.rk}</span>
+        <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="dot ${on ? 'on' : ''}" style="display:inline-block;margin-right:6px"></span>${esc(x.n)} ${s.done ? '✅' : ''}</span>
+        <span><div class="mbar"><i style="width:${pct}%;background:var(--blue)"></i></div><span class="small">${s.qi} / ${Q.length}</span></span>
+        <span>${s.first}</span><span class="p">${x.p}</span>
+        <span><button data-sadj="${esc(x.id)}" data-d="5">+5</button> <button data-sadj="${esc(x.id)}" data-d="-5">−5</button></span></div>`; }).join('') || `<div class="small" style="padding:14px">아직 들어온 학생이 없어요</div>`}
+  </div>`;
+}
+
+if (PW) { call({ action: 'dash' }).then(r => { if (r && r.ok) { setD(r); render(); start(); } else gate(); }); }
 else gate();
 </script>
 </body>

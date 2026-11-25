@@ -16,6 +16,8 @@
  *
  * 교사용 화면 비밀번호는 아래 PASSWORD 를 바꾸면 돼요.
  * 점수는 올라가기만 해요. (선생님이 교사용 화면에서 고치는 것만 예외)
+ *
+ * [2026-11-25 추가] 개인전(mode:'solo') · 교사가 정하는 제한 시간(dur 분) · 시간이 끝나면 자동으로 시상식
  */
 const PASSWORD = '2026';
 const MAX_GROUPS = 8;
@@ -52,7 +54,28 @@ function cfg_() {
   if (!Array.isArray(c.names)) c.names = [];
   for (let i = 0; i < MAX_GROUPS; i++) if (!c.names[i]) c.names[i] = (i + 1) + '모둠';
   if (!c.open) c.open = 'wait';            // wait 입장 준비 · open 축제 시작 · closed 시상식
+  if (c.mode !== 'solo') c.mode = 'team';   // team 모둠전 · solo 개인전
+  if (c.dur == null) c.dur = 10;            // 제한 시간(분), 0이면 제한 없음
+  c.ends = Number(c.ends) || 0;             // 끝나는 시각(ms), 0이면 시계 안 감
+  c.left = Number(c.left) || 0;             // 잠깐 멈췄을 때 남은 시간(ms)
   return c;
+}
+/* 시간이 다 되면 자동으로 시상식 */
+function tick_(c) {
+  if (c.open === 'open' && c.ends && Date.now() >= c.ends) { c.open = 'closed'; c.ends = 0; c.left = 0; putJ_('cfg', c); }
+  return c;
+}
+function soloMap_() { return getJ_('solo', {}) || {}; }
+function soloList_() {
+  const m = soloMap_();
+  return Object.keys(m).map(id => ({ id: id, n: String(m[id].n || ''), p: Number(m[id].p) || 0 })).sort((a, b) => b.p - a.p).slice(0, 80);
+}
+function soloAdd_(id, name, pts) {
+  const m = soloMap_(), k = String(id);
+  m[k] = m[k] || { n: '', p: 0 };
+  if (name) m[k].n = String(name).slice(0, 20);
+  m[k].p = Math.max(0, (Number(m[k].p) || 0) + (Number(pts) || 0));
+  putJ_('solo', m);
 }
 function totals_() {
   const t = getJ_('totals', []);
@@ -63,8 +86,9 @@ function feed_() { return getJ_('feed', []); }
 function pushFeed_(ev) { const f = feed_(); f.unshift(ev); putJ_('feed', f.slice(0, 30)); }
 
 function publicState_() {
-  const c = cfg_(), t = totals_();
-  return { ok: true, sid: c.sid, n: c.n, names: c.names.slice(0, c.n), open: c.open, totals: t.slice(0, c.n), feed: feed_().slice(0, 8), now: Date.now() };
+  const c = tick_(cfg_()), t = totals_();
+  return { ok: true, sid: c.sid, n: c.n, names: c.names.slice(0, c.n), open: c.open, totals: t.slice(0, c.n), feed: feed_().slice(0, 8), now: Date.now(),
+    mode: c.mode, dur: c.dur, ends: c.ends, left: c.left, solo: soloList_() };
 }
 
 function withLock_(fn) {
@@ -93,9 +117,10 @@ function handle_(p) {
   if (a === 'state') return publicState_();
 
   if (a === 'join') return withLock_(() => {
-    const c = cfg_(), g = Number(p.group);
+    const c = cfg_(), g = c.mode === 'solo' ? 0 : Number(p.group);
     if (String(p.sid) !== String(c.sid)) return { ok: false, error: 'sid', state: publicState_() };
     if (!(g >= 0 && g < c.n)) return { ok: false, error: 'group', state: publicState_() };
+    soloAdd_(p.id, p.name, 0);
     const now = Date.now(), { s, rows } = stuRows_();
     const r = findStu_(rows, p.id, c.sid);
     if (r >= 0) {
@@ -109,7 +134,7 @@ function handle_(p) {
     const hit = seen_(p.eid); if (hit) return hit;
     const c = cfg_();
     if (String(p.sid) !== String(c.sid)) return { ok: true, stale: true };
-    const g = Number(p.group);
+    const solo = c.mode === 'solo', g = solo ? 0 : Number(p.group);
     if (!(g >= 0 && g < c.n)) return { ok: true, stale: true };
     let pts = Number(p.pts) || 0;
     if (!OK_PTS[pts]) pts = 0;
@@ -126,8 +151,9 @@ function handle_(p) {
     s.getRange(r + 2, 1, 1, STU_HEAD.length).setValues([row]);
 
     if (pts > 0) {
-      const t = totals_(); t[g] += pts; putJ_('totals', t);
-      pushFeed_({ t: now, g: g, who: String(p.name || ''), pts: pts, gold: pts === 50 });
+      soloAdd_(p.id, p.name, pts);
+      if (!solo) { const t = totals_(); t[g] += pts; putJ_('totals', t); }
+      pushFeed_({ t: now, g: g, who: String(p.name || ''), pts: pts, gold: pts === 50, solo: solo });
     }
     sheet_('기록', LOG_HEAD).appendRow([new Date(now), c.sid, p.id, g + 1, p.name || '', Number(p.qi) + 1, p.qn || '', String(p.ans || ''), p.ok ? 'O' : 'X', Number(p.tries) || 1, pts, String(p.holes || '')]);
     const res = { ok: true };
@@ -144,7 +170,16 @@ function handle_(p) {
     const c = cfg_();
     if (p.n != null) c.n = Math.max(2, Math.min(MAX_GROUPS, Number(p.n) || 4));
     if (Array.isArray(p.names)) p.names.forEach((v, i) => { if (i < MAX_GROUPS) c.names[i] = String(v || '').trim().slice(0, 12) || (i + 1) + '모둠'; });
-    if (p.open && ['wait', 'open', 'closed'].indexOf(p.open) >= 0) c.open = p.open;
+    if (p.mode === 'team' || p.mode === 'solo') c.mode = p.mode;
+    if (p.dur != null) c.dur = Math.max(0, Math.min(60, Number(p.dur) || 0));
+    tick_(c);
+    if (p.open && ['wait', 'open', 'closed'].indexOf(p.open) >= 0 && p.open !== c.open) {
+      const now = Date.now();
+      if (p.open === 'open') { c.ends = c.left > 0 ? now + c.left : (c.dur > 0 ? now + c.dur * 60000 : 0); c.left = 0; }
+      else if (p.open === 'wait') { c.left = c.open === 'open' && c.ends ? Math.max(1000, c.ends - now) : 0; c.ends = 0; }
+      else { c.ends = 0; c.left = 0; }
+      c.open = p.open;
+    }
     putJ_('cfg', c);
     return dash_();
   });
@@ -158,11 +193,30 @@ function handle_(p) {
     return dash_();
   });
 
+  /* 남은 시간 ±1분 */
+  if (a === 'time') return withLock_(() => {
+    const c = tick_(cfg_()), d = (Number(p.delta) || 0) * 60000, now = Date.now();
+    if (c.open === 'open' && c.ends) c.ends = Math.max(now + 5000, c.ends + d);
+    else if (c.open === 'wait' && c.left) c.left = Math.max(5000, c.left + d);
+    putJ_('cfg', c);
+    return dash_();
+  });
+
+  /* 개인전 점수 고치기 */
+  if (a === 'adjustStu') return withLock_(() => {
+    const d = Number(p.delta) || 0, m = soloMap_();
+    if (!m[String(p.id)]) return { ok: false, error: 'id' };
+    soloAdd_(p.id, '', d);
+    pushFeed_({ t: Date.now(), g: 0, who: '선생님 → ' + m[String(p.id)].n, pts: d, teacher: true, solo: true });
+    return dash_();
+  });
+
   if (a === 'reset') return withLock_(() => {
     const c = cfg_();
-    c.sid = String(Date.now()); c.open = 'wait';
+    c.sid = String(Date.now()); c.open = 'wait'; c.ends = 0; c.left = 0;
     putJ_('cfg', c);
     putJ_('totals', []);
+    putJ_('solo', {});
     putJ_('feed', []);
     const st = sheet_('학생', STU_HEAD);
     if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, STU_HEAD.length).clearContent();
