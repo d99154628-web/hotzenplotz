@@ -261,7 +261,7 @@ const STORY = [
 function renderStory() {
   const k = me.story || 0, s = STORY[k];
   app.innerHTML = `<section class="card fade">
-    <div class="story"><img class="scene" src="img/${s.pic}.webp" alt=""><div class="storytext">${s.html.replace(SOLO() ? /<p class="teamonly">[\s\S]*?<\/p>/ : /<p class="soloonly">[\s\S]*?<\/p>/, '')}${k === STORY.length - 1 && SRV && SRV.dur ? `<p>⏱ 제한 시간은 <b>${SRV.dur}분</b>! 시간이 끝나면 순위가 떠요.</p>` : ''}</div></div>
+    <div class="story"><img class="scene" src="img/${s.pic}.webp" alt=""><div class="storytext">${(SOLO() ? s.html.replace('우리 모둠도', '나도') : s.html).replace(SOLO() ? /<p class="teamonly">[\s\S]*?<\/p>/ : /<p class="soloonly">[\s\S]*?<\/p>/, '')}${k === STORY.length - 1 && SRV && SRV.dur ? `<p>⏱ 제한 시간은 <b>${SRV.dur}분</b>! 시간이 끝나면 순위가 떠요.</p>` : ''}</div></div>
     <div class="dots">${STORY.map((_, i) => `<i class="${i === k ? 'on' : ''}"></i>`).join('')}</div>
     <div class="row" style="justify-content:center;margin-top:16px">
       ${k > 0 ? `<button class="btn ghost" id="prev">← 앞으로</button>` : ''}
@@ -535,7 +535,7 @@ function soloAwardHTML() {
   return `<div class="card center awardcard" style="--bg:url(img/bg_award.webp)"><div class="art trophy" style="width:110px;height:110px;margin:0 auto">${ART.trophy}</div>
     <div class="sub jua" style="color:var(--red);letter-spacing:2px;margin-top:6px">세계 전통 놀이 축제 · 개인전 시상식</div>
     <h2 style="font-size:30px;margin:6px 0 10px">⏰ 시간 끝! 투호 챔피언은?</h2>
-    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">${top3.map(x => `<div class="card" style="padding:10px 16px;min-width:130px${x.id === me.id ? ';outline:4px solid var(--red)' : ''}"><div style="font-size:38px">${medal(x.rk)}</div><div class="jua" style="font-size:22px">${esc(x.n)}</div><div>${x.p}점</div></div>`).join('') || '<p class="muted">아직 점수가 없어요</p>'}</div>
+    <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">${top3.map(x => `<div class="card" style="padding:10px 12px;width:150px;flex:0 0 150px;margin:0${x.id === me.id ? ';outline:4px solid var(--red)' : ''}"><div style="font-size:38px">${medal(x.rk)}</div><div class="jua" style="font-size:22px">${esc(x.n)}</div><div>${x.p}점</div></div>`).join('') || '<p class="muted">아직 점수가 없어요</p>'}</div>
     ${mine ? `<p style="font-size:22px;margin:4px 0">나는 <b style="color:var(--red);font-size:30px">${mine.rk}등</b> / ${arr.length}명 · <b>${mine.p}점</b>${mine.rk <= 3 && mine.p > 0 ? ' 🎉' : ''}</p>` : ''}
     <p class="muted">모두 정말 잘했어요. <span class="en">Good job, everyone!</span></p>
     <div style="text-align:left;margin-top:10px;max-height:40vh;overflow:auto">${soloBoardHTML(false, 100)}</div></div>`;

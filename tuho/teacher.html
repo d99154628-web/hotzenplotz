@@ -143,7 +143,7 @@ function render() {
   }).join('')}</div>`}
 
   <div class="side">
-    <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : '🏹'} <b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b> ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
+    <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : '🏹'} ${f.solo ? '' : `<b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b>`} ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
     <div class="card"><h3>🤔 많이 틀린 문제</h3><div class="feed" style="margin-top:8px">${(D.hard || []).map(h => { const q = Q[h.qi - 1]; return `<div><b>${h.qi}번</b> ${q ? esc(q.q) : ''} <span class="small">· ${h.wrong}/${h.n}명 처음에 틀림</span></div>`; }).join('') || '<div class="small">아직 없어요</div>'}</div></div>
   </div>
 
