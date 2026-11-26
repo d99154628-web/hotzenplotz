@@ -8,14 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&display=swap">
 <style>:root{color-scheme:light}body{margin:0;font:15px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="sky" aria-hidden="true"><span class="skyimg"></span><img class="cloud c1" src="img/cloud_1.webp?v=3" alt=""><img class="cloud c2" src="img/cloud_2.webp?v=3" alt=""><img class="cloud c3" src="img/cloud_1.webp?v=3" alt=""><span class="motes"></span></div>
 <div class="wrap" id="app"><p class="loading">박물관 불을 켜는 중이에요…</p></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <a class="quicklink" href="teacher.html" target="_blank" rel="noopener">🔑 교사용 화면</a>
-<script src="common.js?v=4"></script>
+<script src="common.js?v=5"></script>
 <script src="demo.js"></script>
 <script>
 /* =====================================================================
@@ -26,7 +26,10 @@ let G = null;          // 서버 상태(모둠 수, 이름, 점수, 개관 여�
 let SET = null;        // 오늘의 문제 세트
 let S = null;          // 이 학생의 진행 상태
 let deltas = {};       // 점수 바뀐 모둠 → 변화량 (애니메이션)
-let lastFeedT = 0, joinMsg = '', busy = false;
+let lastFeedT = 0, joinMsg = '', busy = false, skew = 0, zeroPolled = false;
+const leftMs = () => G && G.open === 'open' && G.endAt ? Math.max(0, G.endAt - (Date.now() + skew)) : null;
+const mmss = ms => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function timerBadge() { const l = leftMs(); return l == null ? '' : `<span class="tbadge ${l <= 60000 ? 'hurry' : ''}" data-timer title="남은 시간">⏱ <b>${mmss(l)}</b></span>`; }
 const draft = { group: null, name: '' };
 
 function saveMe() { if (S) lsSet('me', JSON.stringify(S)); }
@@ -64,6 +67,7 @@ function takeState(st, quiet) {
   const old = G;
   if (old && old.sid === st.sid) st.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) deltas[i] = (deltas[i] || 0) + d; });
   G = st;
+  if (st.now) skew = st.now - Date.now();
   const fresh = (st.feed || []).filter(f => f.t > lastFeedT).reverse();
   if (lastFeedT && S && S.group != null) fresh.forEach(f => {
     if (f.id && f.id === S.id) return;
@@ -117,7 +121,7 @@ function header() {
   const g = S && S.screen === 'game';
   const prog = !S ? 0 : (S.screen === 'end' || S.screen === 'done') ? 1 : Math.min(S.qi / Math.max(limit(), 1), 1);
   return `<header class="top"><div class="brand"><span class="logo">${boriSVG(S && S.phase === 'wrong' ? 'oops' : S && S.phase === 'right' ? 'happy' : 'idle', 52)}</span><div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
-  ${S && S.screen !== 'join' ? `<div class="toolbar">${memoryBar(prog)}${g ? `<span class="chip">${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
+  ${S && S.screen !== 'join' ? `<div class="toolbar">${timerBadge()}${memoryBar(prog)}${g ? `<span class="chip">${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
     <span class="who"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(G.names[S.group])} · ${esc(S.name)}</span>
     <button class="iconbtn" data-act="music" aria-label="배경 음악 켜기/끄기" aria-pressed="${BGM.on}" title="배경 음악">${BGM.on ? '🎵' : '<s>🎵</s>'}</button>
     <button class="iconbtn" data-act="mute" aria-label="모든 소리 켜기/끄기" title="모든 소리">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
@@ -246,9 +250,11 @@ function doneScreen() {
    <h2>보리의 기억을 모두 되찾았어요!</h2><p>선생님이 박물관 문을 닫을 때까지 모둠 점수판을 지켜보세요. 친구들의 캡슐이 아직 열리고 있어요.</p>${myStats()}</section>`;
 }
 function endScreen() {
-  const r = G.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = r[0].s;
+  const idx = G.totals.map((_, i) => i);
+  const r = (Array.isArray(G.final) && G.final.length === idx.length ? G.final : idx.sort((a, b) => G.totals[b] - G.totals[a])).map(i => ({ s: G.totals[i], i })), top = r[0].s;
   return `${header()}<section class="card end"><div class="endart"><img class="endimg" src="${IMG('end_opening')}" alt="개관 축하 중인 하늘 박물관"><img class="flag f1" src="${IMG('flag')}" alt=""><img class="flag f2" src="${IMG('flag')}" alt=""><div class="ribbon">Grand Opening!</div><div class="endbori">${boriSVG('happy', 96)}</div></div><h2>박물관이 무사히 문을 열었어요</h2><p>보리가 모든 전시품을 소개할 수 있게 되었어요. 오늘의 최고 큐레이터 모둠은?</p>
-   <div class="podium">${r.map((x, k) => `<div class="rank ${x.s === top ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}" style="--gc:${TEAMC[x.i]}"><span>${x.s === top ? '🏆' : k + 1 + '위'} · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
+   <div class="podium">${r.map((x, k) => `<div class="rank ${k === 0 ? 'first' : ''} ${x.i === S.group ? 'meg' : ''}" style="--gc:${TEAMC[x.i]}"><span>${k === 0 ? '🏆' : k + 1 + '위'} · ${esc(G.names[x.i])}${x.i === S.group ? ' (우리 모둠)' : ''}</span><span class="pts">${x.s}점</span></div>`).join('')}</div>
+   ${(G.tie || []).length ? `<p class="tienote">⚖️ ${G.tie.map(x => `${esc(G.names[x.g])}: ${esc(G.names[x.h])}와(과) 동점이었지만 ${esc(x.why)} +${x.add}점`).join(' · ')}</p>` : ''}
    ${myStats()}</section>`;
 }
 function render() {
@@ -382,6 +388,12 @@ app.addEventListener('click', e => {
   if (DEMO) toast('연습 모드예요. 기록은 이 브라우저에만 저장돼요.', '');
   SendQueue.flush();
   setInterval(poll, DEMO ? 2500 : 5000);
+  setInterval(() => {
+    const l = leftMs();
+    if (l == null) { zeroPolled = false; return; }
+    document.querySelectorAll('[data-timer]').forEach(el => { el.querySelector('b').textContent = mmss(l); el.classList.toggle('hurry', l <= 60000); });
+    if (l === 0 && !zeroPolled) { zeroPolled = true; setTimeout(poll, 1500); setTimeout(() => { zeroPolled = false; }, 6000); }
+  }, 500);
 })();
 </script>
 </body>

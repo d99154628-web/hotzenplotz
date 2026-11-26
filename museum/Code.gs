@@ -66,6 +66,8 @@ function cfg_() {
   if (!c.setId) c.setId = 'default';
   if (!c.setTitle) c.setTitle = '';
   if (!c.setVer) c.setVer = 1;
+  if (c.dur == null) c.dur = 15;           // 수업 시간(분). 0 = 시간 제한 없음
+  if (c.endAt == null) c.endAt = 0;        // 열려 있을 때 끝나는 시각(ms)
   if (fresh) putJ_('cfg', c);
   return c;
 }
@@ -82,7 +84,8 @@ function publicState_() {
   const c = cfg_(), s = score_();
   return {
     ok: true, sid: c.sid, n: c.n, names: c.names.slice(0, c.n), limit: c.limit, open: c.open,
-    setId: c.setId, setTitle: c.setTitle, setVer: c.setVer,
+    setId: c.setId, setTitle: c.setTitle, setVer: c.setVer, dur: c.dur, endAt: c.open === 'open' ? c.endAt : 0,
+    final: c.open === 'closed' ? (c.final || null) : null, tie: c.open === 'closed' ? (c.tie || []) : [],
     totals: s.totals.slice(0, c.n), shields: s.shields.slice(0, c.n), feed: feed_().slice(0, 12), now: Date.now()
   };
 }
@@ -110,6 +113,7 @@ function findStu_(rows, id, sid) { return rows.findIndex(r => String(r[0]) === S
 /* ---------- 요청 처리 ---------- */
 function handle_(p) {
   const a = p.action;
+  autoClose_();
   if (a === 'state') return publicState_();
   if (a === 'set') return { ok: true, set: activeSet_() };
 
@@ -172,7 +176,24 @@ function handle_(p) {
     if (p.n != null) c.n = Math.max(2, Math.min(MAX_GROUPS, Number(p.n) || 4));
     if (Array.isArray(p.names)) p.names.forEach((v, i) => { if (i < MAX_GROUPS) c.names[i] = String(v || '').trim().slice(0, 12) || (i + 1) + '모둠'; });
     if (p.limit != null) c.limit = Math.max(0, Number(p.limit) || 0);
-    if (p.open && ['wait', 'open', 'closed'].indexOf(p.open) >= 0) c.open = p.open;
+    if (p.dur != null) c.dur = Math.max(0, Math.min(90, Math.round(Number(p.dur) || 0)));
+    if (p.open && ['wait', 'open', 'closed'].indexOf(p.open) >= 0 && p.open !== c.open) {
+      if (p.open === 'closed') { putJ_('cfg', c); close_(); return dash_(); }
+      c.open = p.open; c.final = null; c.tie = [];
+      c.endAt = p.open === 'open' && c.dur > 0 ? Date.now() + c.dur * 60000 : 0;
+    } else if (p.dur != null && c.open === 'open') c.endAt = c.dur > 0 ? Date.now() + c.dur * 60000 : 0;
+    putJ_('cfg', c);
+    return dash_();
+  });
+
+  /* 진행 중에 시간 늘리기·줄이기 (분) */
+  if (a === 'time') return withLock_(() => {
+    const c = cfg_(), d = Math.round(Number(p.delta) || 0), now = Date.now();
+    if (c.open === 'open') {
+      if (!c.endAt) c.endAt = now;
+      c.endAt = Math.max(now + 30000, c.endAt + d * 60000);
+      c.dur = Math.max(1, Math.ceil((c.endAt - now) / 60000));
+    } else c.dur = Math.max(0, Math.min(90, c.dur + d));
     putJ_('cfg', c);
     return dash_();
   });
@@ -183,12 +204,13 @@ function handle_(p) {
     s.totals[g] = Math.max(0, s.totals[g] + d);
     putJ_('score', s);
     pushFeed_({ t: Date.now(), g: g, who: '선생님', item: d >= 0 ? 'teacherUp' : 'teacherDown', msg: `선생님이 ${c.names[g]} 점수를 ${d >= 0 ? '+' : '−'}${Math.abs(d)}점 고쳤어요.`, d: [[g, d]] });
+    if (c.open === 'closed') finalize_(cfg_());
     return dash_();
   });
 
   if (a === 'reset') return withLock_(() => {
     const c = cfg_();
-    c.sid = String(Date.now()); c.open = p.open || 'wait';
+    c.sid = String(Date.now()); c.open = p.open || 'wait'; c.endAt = 0; c.final = null; c.tie = [];
     putJ_('cfg', c);
     putJ_('score', { totals: [], shields: [] });
     putJ_('feed', []);
@@ -203,6 +225,45 @@ function handle_(p) {
   if (a === 'useSet') return withLock_(() => useSet_(String(p.id)));
 
   return { ok: false, error: 'unknown action' };
+}
+
+/* ---------- 시간 끝 · 폐관 · 순위 확정 (동점 없음) ---------- */
+function autoClose_() {
+  const c = cfg_();
+  if (c.open !== 'open' || !c.endAt || Date.now() < c.endAt) return;
+  withLock_(() => { const c2 = cfg_(); if (c2.open === 'open' && c2.endAt && Date.now() >= c2.endAt) close_(); });
+}
+function close_() {
+  const c = cfg_();
+  c.open = 'closed'; c.endAt = 0;
+  putJ_('cfg', c);
+  finalize_(c);
+}
+/* 점수가 같은 모둠이 있으면 → 맞힌 문제 수 → 정답률 → 제비뽑기 순으로 순서를 정하고,
+   앞선 모둠에 결승 보너스 +1점을 줘서 점수가 절대 같지 않게 만들어요. */
+function finalize_(c) {
+  const s = score_(), n = c.n, { rows } = stuRows_();
+  const right = [], tried = [];
+  for (let i = 0; i < n; i++) { right[i] = 0; tried[i] = 0; }
+  rows.forEach(r => { if (String(r[9]) !== String(c.sid)) return; const g = Number(r[1]); if (g >= 0 && g < n) { right[g] += Number(r[4]) || 0; tried[g] += Number(r[3]) || 0; } });
+  const acc = i => tried[i] ? right[i] / tried[i] : 0;
+  const luck = []; for (let i = 0; i < n; i++) luck[i] = Math.random();
+  const order = []; for (let i = 0; i < n; i++) order.push(i);
+  order.sort((a, b) => s.totals[b] - s.totals[a] || right[b] - right[a] || acc(b) - acc(a) || luck[b] - luck[a]);
+  const tie = [];
+  for (let k = n - 2; k >= 0; k--) {
+    const g = order[k], h = order[k + 1];
+    if (s.totals[g] <= s.totals[h]) {
+      const why = right[g] !== right[h] ? `맞힌 문제가 ${right[g]}개로 더 많아서` : acc(g) !== acc(h) ? '정답률이 더 높아서' : '제비뽑기로';
+      const add = s.totals[h] + 1 - s.totals[g];
+      s.totals[g] += add;
+      tie.push({ g: g, h: h, add: add, why: why });
+      pushFeed_({ t: Date.now(), g: g, who: '보리', item: 'tie', msg: `동점 결승! ${c.names[g]}이(가) ${c.names[h]}보다 ${why} 결승 보너스 +${add}점`, d: [[g, add]] });
+    }
+  }
+  putJ_('score', s);
+  c.final = order; c.tie = tie.reverse();
+  putJ_('cfg', c);
 }
 
 /* ---------- 상자 효과 (모둠 점수) ---------- */
@@ -251,6 +312,7 @@ function applyBox_(c, p) {
   pushFeed_({ t: Date.now(), id: String(p.id || ''), g: me, who: who, item: id, msg: msg, d: dl });
   sheet_('기록', LOG_HEAD).appendRow([new Date(), c.sid, p.id, me + 1, who, '상자', '', '', '', ITEM_NAME[id] || id, t != null ? t + 1 : '', dl.map(x => `${x[0] + 1}모둠 ${x[1] > 0 ? '+' : ''}${x[1]}`).join(', '), msg]);
 
+  if (c.open === 'closed') finalize_(cfg_());   // 폐관 뒤 늦게 열린 캡슐로 동점이 생기지 않게
   const st2 = publicState_();
   st2.msg = msg; st2.deltas = dl; st2.mine = mine;
   return st2;

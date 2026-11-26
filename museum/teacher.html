@@ -7,13 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Fredoka:wght@500;600;700&display=swap">
 <style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body class="tpage">
 <div class="sky" aria-hidden="true"><span class="skyimg"></span><img class="cloud c1" src="img/cloud_1.webp?v=3" alt=""><img class="cloud c2" src="img/cloud_2.webp?v=3" alt=""><span class="motes"></span></div>
 <div class="wrap" id="app"><p class="loading">불러오는 중이에요…</p></div>
 <a class="quicklink" href="./" target="_blank" rel="noopener">🎒 학생 화면</a>
-<script src="common.js?v=4"></script>
+<script src="common.js?v=5"></script>
 <script src="demo.js"></script>
 <script>
 /* =====================================================================
@@ -40,9 +40,12 @@ async function refresh() {
     if (r && r.ok) { take(r); lastOk = Date.now(); paint(); }
   } catch (e) { const s = document.getElementById('sync'); if (s) { s.textContent = '연결이 잠깐 끊겼어요'; s.classList.add('err'); } }
 }
+let skew = 0, award = null, autoStopping = false;
 function take(r) {
   const old = D; D = r;
+  if (r.now) skew = r.now - Date.now();
   D._d = {};
+  if (old && old.sid === r.sid && old.open !== 'closed' && r.open === 'closed' && view !== 'login') startAward();
   if (old && old.sid === r.sid) r.totals.forEach((v, i) => { const d = v - (old.totals[i] || 0); if (d) D._d[i] = d; });
 }
 
@@ -59,6 +62,88 @@ function groupStats(g) {
 }
 function ago(t) { if (!t) return ''; const s = Math.round((D.now - t) / 1000); return s < 60 ? `${Math.max(s, 0)}초 전` : `${Math.floor(s / 60)}분 전`; }
 
+/* ---------- 수업 시간 ---------- */
+const leftMs = () => D && D.open === 'open' && D.endAt ? Math.max(0, D.endAt - (Date.now() + skew)) : null;
+const mmss = ms => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function timerBadge(cls) {
+  const l = leftMs(); if (l == null) return '';
+  return `<span class="tbadge ${cls || ''} ${l <= 60000 ? 'hurry' : ''}" data-timer>⏱ <b>${mmss(l)}</b></span>`;
+}
+function timeRow() {
+  const run = D.open === 'open' && D.endAt;
+  if (run) return `<div class="ctlrow timerow"><span class="lab">남은 시간</span><div class="timebox">
+     <button class="btn ghost" data-act="tm" data-d="-1" aria-label="1분 줄이기">−1분</button>${timerBadge('big')}<button class="btn ghost" data-act="tm" data-d="1" aria-label="1분 늘리기">+1분</button>
+     <button class="btn stopbtn" data-act="stop">⏹ 멈추고 시상식</button></div>
+     <small class="hint">시간이 0이 되면 저절로 멈추고 팡파레와 함께 시상식이 시작돼요.</small></div>`;
+  const presets = [5, 10, 15, 20, 25, 30];
+  return `<div class="ctlrow timerow"><span class="lab">수업 시간</span><div class="timebox">
+     <button class="btn ghost" data-act="tm" data-d="-1" aria-label="1분 줄이기" ${D.dur <= 0 ? 'disabled' : ''}>−1분</button><span class="tbadge big set"><b>${D.dur > 0 ? D.dur + '분' : '제한 없음'}</b></span><button class="btn ghost" data-act="tm" data-d="1" aria-label="1분 늘리기">+1분</button>
+     <span class="presets">${presets.map(v => `<button class="btn ghost small" data-act="dur" data-v="${v}" aria-pressed="${D.dur === v}">${v}분</button>`).join('')}<button class="btn ghost small" data-act="dur" data-v="0" aria-pressed="${D.dur === 0}">제한 없음</button></span>
+     ${D.open === 'open' ? `<button class="btn stopbtn" data-act="stop">⏹ 멈추고 시상식</button>` : ''}</div>
+     <small class="hint">「박물관 열기」를 누르는 순간부터 시간이 줄어들어요. 학생 화면에도 남은 시간이 보여요.</small></div>`;
+}
+
+/* ---------- 시상식 (팡파레 · 꼴찌부터 한 모둠씩 발표, 동점 없음) ---------- */
+function ranking() {
+  const idx = D.totals.map((_, i) => i);
+  const f = Array.isArray(D.final) && D.final.length === idx.length ? D.final : idx.sort((a, b) => D.totals[b] - D.totals[a]);
+  return f.map(i => ({ i, s: D.totals[i] }));
+}
+function fanfare() {
+  const c = ac(); if (!c) return;
+  const brass = (f, t, dur) => { tone(c, { f, type: 'sawtooth', t, dur, vol: .05, attack: .015 }); tone(c, { f, type: 'triangle', t, dur, vol: .1, attack: .01 }); tone(c, { f: f / 2, type: 'triangle', t, dur, vol: .06, attack: .01 }); };
+  [[392, 0, .13], [392, .16, .13], [392, .32, .13], [523.3, .48, .55], [392, 1.08, .2], [523.3, 1.3, .2], [659.3, 1.52, .3], [784, 1.86, 1.4]].forEach(([f, t, d]) => brass(f, t, d));
+  [[659.3, 1.86], [523.3, 1.86]].forEach(([f, t]) => tone(c, { f, type: 'triangle', t, dur: 1.4, vol: .06 }));
+  for (let i = 0; i < 4; i++) noise(c, { t: .48 + i * .02, dur: .35, vol: .05, from: 5000, to: 8000, q: .7 });
+  noise(c, { t: 1.86, dur: 1.4, vol: .09, from: 6000, to: 9000, q: .5 });
+}
+function drumroll(sec) {
+  const c = ac(); if (!c) return;
+  for (let t = 0; t < sec; t += .055) noise(c, { t, dur: .05, vol: .03 + .05 * (t / sec), from: 1800, to: 1200, q: 2 });
+  noise(c, { t: sec, dur: 1.2, vol: .12, from: 7000, to: 9000, q: .4 });
+  tone(c, { f: 98, f2: 60, type: 'sine', t: sec, dur: .5, vol: .25, attack: .005 });
+}
+function ding(k) { const c = ac(); if (!c) return; [660, 880].forEach((f, j) => tone(c, { f: f * (1 + k * .06), type: 'triangle', t: j * .09, dur: .45, vol: .1, attack: .005 })); }
+function startAward() {
+  if (award && award.timers) award.timers.forEach(clearTimeout);
+  BGM.stop(true);
+  view = 'award'; award = { shown: 0, timers: [], first: false };
+  if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  render(); fanfare();
+  const n = D.totals.length, T = award.timers;
+  let t = 3200;
+  for (let k = 1; k < n; k++) { T.push(setTimeout(() => { award.shown = k; ding(n - k); paintAward(); }, t)); t += 1500; }
+  T.push(setTimeout(() => { award.drum = true; paintAward(); drumroll(2.4); }, t));
+  T.push(setTimeout(() => { award.shown = n; award.drum = false; award.first = true; paintAward(); fanfare(); confetti(); SFX.finale(); }, t + 2400));
+  T.push(setTimeout(() => BGM.play('bgm_opening', .45), t + 5200));
+}
+function awardView() {
+  const r = ranking(), n = r.length, sh = award ? award.shown : n;
+  const ties = (D.tie || []).map(x => `<li><span class="dot" style="background:${TEAMC[x.g]}"></span> <b>${esc(D.names[x.g])}</b> — ${esc(D.names[x.h])}와(과) 점수가 같았지만 ${esc(x.why)} <b>결승 보너스 +${x.add}점</b></li>`).join('');
+  const medal = k => ['🥇', '🥈', '🥉'][k] || `${k + 1}위`;
+  const champ = r[0];
+  return `<section class="award">
+   <div class="awhead">${boriSVG('happy', 110)}<div><small>보리봇의 세계 문화 박물관</small><h1>🎺 모둠 시상식 🎺</h1><p>${award && award.first ? '오늘의 최고 큐레이터 모둠은…' : award && award.drum ? '두구두구두구… 1등은?' : '꼴찌부터 한 모둠씩 발표해요!'}</p></div>
+    <div class="awbtns"><button class="btn ghost" data-act="replay">🔁 다시 발표</button><button class="btn ghost" data-act="back">← 교사용 화면</button></div></div>
+   ${award && award.first ? `<div class="champ" style="--gc:${TEAMC[champ.i]}"><span class="trophy">🏆</span><div><small>1위</small><b>${esc(D.names[champ.i])}</b><span>${champ.s}점</span></div><span class="trophy">🏆</span></div>` : award && award.drum ? `<div class="champ mystery"><span class="trophy">🥁</span><div><small>1위</small><b>???</b></div><span class="trophy">🥁</span></div>` : ''}
+   <ol class="awlist">${r.map((x, k) => { const on = k >= n - sh; return `<li class="${on ? 'on' : 'off'} ${k === 0 ? 'gold' : k === 1 ? 'silver' : k === 2 ? 'bronze' : ''}" style="--gc:${TEAMC[x.i]}"><span class="md">${medal(k)}</span><span class="an">${on ? esc(D.names[x.i]) : '? ? ?'}</span><span class="as">${on ? x.s + '점' : ''}</span></li>`; }).join('')}</ol>
+   ${ties && (award ? award.first : true) ? `<div class="ties"><h3>⚖️ 동점 결승</h3><ul>${ties}</ul><small>점수가 같으면 맞힌 문제 수 → 정답률 → 제비뽑기 순서로 정해요.</small></div>` : ''}
+   <div class="confetti" id="confetti" aria-hidden="true"></div></section>`;
+}
+function paintAward() { if (view !== 'award') return; const keep = document.getElementById('confetti'); app.innerHTML = awardView(); if (keep && keep.children.length) document.getElementById('confetti').replaceWith(keep); }
+function confetti() {
+  const box = document.getElementById('confetti'); if (!box) return;
+  const cols = TEAMC.concat(['#ffd23f', '#ffffff']);
+  for (let i = 0; i < 140; i++) {
+    const e = document.createElement('i');
+    e.style.left = Math.random() * 100 + '%'; e.style.background = cols[i % cols.length];
+    e.style.animationDelay = (Math.random() * 1.6) + 's'; e.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+    e.style.transform = `rotate(${Math.random() * 360}deg)`; if (i % 3 === 0) e.style.borderRadius = '50%';
+    box.appendChild(e);
+  }
+  setTimeout(() => { box.innerHTML = ''; }, 7500);
+}
+
 /* ---------- 화면 조각 ---------- */
 function loginView() {
   return `<section class="tpanel login"><div class="brand"><span class="logo">${boriSVG('idle', 56)}</span><div><small>교사용 화면</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
@@ -70,8 +155,8 @@ function topBar() {
   const all = D.students.length, L = lim();
   const prog = all ? D.students.reduce((a, s) => a + Math.min(s.qi, L), 0) / (all * L) : 0;
   return `<header class="top"><div class="brand"><span class="logo">${boriSVG(D.open === 'closed' ? 'happy' : D.open === 'open' ? 'idle' : 'sleep', 56)}</span><div><small>교사용 화면 · ${esc(D.setTitle || DEFAULT_SET.title)}</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
-   <div class="toolbar"><span id="allbar">${memoryBar(D.open === 'closed' ? 1 : prog, '반 전체 진행')}</span><span class="sync" id="sync" role="status">방금 갱신</span>
-    <button class="btn ghost" data-act="big">점수판 크게 보기</button></div></header>`;
+   <div class="toolbar"><span id="allbar">${memoryBar(D.open === 'closed' ? 1 : prog, '반 전체 진행')}</span>${timerBadge()}<span class="sync" id="sync" role="status">방금 갱신</span>
+    ${D.open === 'closed' ? `<button class="btn" data-act="award">🏆 시상식 보기</button>` : ''}<button class="btn ghost" data-act="big">점수판 크게 보기</button></div></header>`;
 }
 function controls() {
   const n = D.n;
@@ -80,6 +165,7 @@ function controls() {
   return `<section class="tpanel ctl">
    <div class="thead"><h2>박물관 운영</h2><span class="tmsg ${saving.startsWith('!') ? 'err' : ''}" role="status">${esc(saving.replace(/^!/, ''))}</span></div>
    <div class="ctlrow"><span class="lab">박물관 상태</span><div class="states" role="group" aria-label="박물관 상태">${states.map(([k, t, d]) => `<button data-act="open" data-v="${k}" aria-pressed="${D.open === k}" class="st-${k}"><b>${t}</b><small>${d}</small></button>`).join('')}</div></div>
+   ${timeRow()}
    <div class="ctlgrid">
     <div class="ctlrow"><span class="lab">모둠 수</span><div class="count-row" role="group" aria-label="모둠 수">${[2, 3, 4, 5, 6, 7, 8].map(k => `<button data-act="n" data-n="${k}" aria-pressed="${n === k}">${k}</button>`).join('')}</div>
      ${D.students.some(s => s.g >= n) ? `<p class="tnote warn">줄인 모둠에 들어가 있던 학생은 모둠을 다시 골라야 해요.</p>` : ''}</div>
@@ -136,7 +222,7 @@ function monitor() {
 function bigView() {
   const r = D.totals.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s), top = Math.max(r[0].s, 1);
   return `<section class="bigboard"><div class="bbhead">${boriSVG(D.open === 'closed' ? 'happy' : D.open === 'open' ? 'idle' : 'sleep', 110)}<div><h1>${D.open === 'closed' ? 'Grand Opening!' : '보리봇의 세계 문화 박물관'}</h1><p>${D.open === 'closed' ? '오늘의 최고 큐레이터 모둠은?' : D.open === 'open' ? '보리의 기억을 되찾고 캡슐을 열어요' : '곧 박물관 문이 열려요'}</p></div>
-   <button class="btn ghost" data-act="back">← 교사용 화면</button></div>
+   ${timerBadge('big')}<button class="btn ghost" data-act="back">← 교사용 화면</button></div>
    <ol class="bars">${r.map((x, k) => `<li style="--gc:${TEAMC[x.i]}" class="${k === 0 && x.s > 0 ? 'first' : ''}"><span class="bn">${k + 1}. ${esc(D.names[x.i])}${D.shields[x.i] ? ' ☂️' : ''}</span><span class="bt"><i style="width:${Math.max(x.s / top * 100, 2)}%"></i></span><span class="bs" data-sc data-from="${x.s - (D._d[x.i] || 0)}" data-to="${x.s}">${x.s - (D._d[x.i] || 0)}</span></li>`).join('')}</ol>
    <div class="bbfeed">${feedList(4)}</div></section>`;
 }
@@ -145,6 +231,7 @@ function bigView() {
 function render() {
   if (view === 'login') { app.innerHTML = loginView(); setTimeout(() => { const p = document.getElementById('pw'); p && p.focus(); }, 30); return; }
   if (!D) { app.innerHTML = '<p class="loading">불러오는 중이에요…</p>'; return; }
+  if (view === 'award') { app.innerHTML = awardView(); return; }
   if (view === 'big') { app.innerHTML = bigView(); countUp(app); if (D.open === 'closed') BGM.play('bgm_opening', .5); else BGM.stop(); return; }
   if (view === 'sets' || view === 'edit') { app.innerHTML = topBar() + setsView(); return; }
   app.innerHTML = topBar() + `<div id="ctl">${controls()}</div><div id="mon">${monitor()}</div>`;
@@ -152,6 +239,7 @@ function render() {
 }
 /* 주기적으로 바뀌는 부분만 다시 그림 (입력 중인 칸은 그대로 둠) */
 function paint() {
+  if (view === 'award') { if (!award || award.first) paintAward(); return; }
   if (view === 'big') { app.innerHTML = bigView(); countUp(app); if (D.open === 'closed') BGM.play('bgm_opening', .5); else BGM.stop(); return; }
   if (view !== 'main') return;
   const mon = document.getElementById('mon'), ctl = document.getElementById('ctl');
@@ -353,11 +441,16 @@ app.addEventListener('click', async e => {
   if (a === 'login') return login();
   if (a === 'open') {
     const v = b.dataset.v; if (v === D.open) return;
-    if (v === 'open') SFX.bell(); else if (v === 'closed') SFX.finale(); else SFX.pick();
+    if (v === 'closed') return stopNow();
+    if (v === 'open') SFX.bell(); else SFX.pick();
     config({ open: v }, { wait: '준비 중이에요. 학생들이 모둠을 고르고 기다려요.', open: '박물관 문을 열었어요! 학생들이 풀기 시작해요.', closed: '폐관했어요. 학생 화면에 순위가 나와요.' }[v]);
   }
   else if (a === 'n') { const n = +b.dataset.n; if (n === D.n) return; SFX.pick(); config({ n }, `${n}모둠으로 바꿨어요.`); }
   else if (a === 'names') saveNames();
+  else if (a === 'stop') stopNow();
+  else if (a === 'tm') { SFX.click(); const d = +b.dataset.d; try { const r = await call({ action: 'time', delta: d }); if (r && r.ok) { take(r); saving = d > 0 ? '1분 늘렸어요.' : '1분 줄였어요.'; paint(); paintCtl(); } } catch (err) {} }
+  else if (a === 'dur') { const v = +b.dataset.v; SFX.pick(); config({ dur: v }, v ? `수업 시간을 ${v}분으로 정했어요.` : '시간 제한 없이 진행해요.'); }
+  else if (a === 'award' || a === 'replay') { SFX.click(); startAward(); }
   else if (a === 'adj') { SFX.click(); try { const r = await call({ action: 'adjust', group: +b.dataset.g, delta: +b.dataset.d }); if (r && r.ok) { take(r); paint(); } } catch (err) {} }
   else if (a === 'reset') {
     if (!confirmReset) { confirmReset = true; paintCtl(); setTimeout(() => { confirmReset = false; if (view === 'main') paintCtl(); }, 6000); return; }
@@ -366,8 +459,23 @@ app.addEventListener('click', async e => {
     render();
   }
   else if (a === 'big') { view = 'big'; render(); document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); }
-  else if (a === 'back') { BGM.stop(); view = 'main'; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); }
+  else if (a === 'back') { if (award && award.timers) award.timers.forEach(clearTimeout); award = null; BGM.stop(); view = 'main'; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); render(); }
 });
+
+async function stopNow() {
+  saving = '박물관 문을 닫는 중…'; paintCtl();
+  try { const r = await call({ action: 'config', open: 'closed' }); if (r && r.ok) { saving = '폐관했어요. 시상식을 시작해요!'; const was = D && D.open; take(r); if (was === 'closed' || view !== 'award') startAward(); } else saving = '!멈추지 못했어요. 다시 눌러 주세요.'; }
+  catch (e) { if (view !== 'login') saving = '!인터넷 연결을 확인하고 다시 눌러 주세요.'; paintCtl(); }
+}
+/* 1초마다 남은 시간 표시 · 0이 되면 멈추기 */
+setInterval(() => {
+  if (!D || view === 'login') return;
+  const l = leftMs();
+  document.querySelectorAll('[data-timer]').forEach(el => { if (l == null) return; el.querySelector('b').textContent = mmss(l); el.classList.toggle('hurry', l <= 60000); });
+  if (l != null && l <= 10000 && l > 0 && Math.ceil(l / 1000) !== stopTick) { stopTick = Math.ceil(l / 1000); SFX.tick(); }
+  if (l === 0 && !autoStopping) { autoStopping = true; stopNow().finally(() => setTimeout(() => { autoStopping = false; }, 5000)); }
+}, 250);
+let stopTick = 0;
 
 /* ---------- 시작 ---------- */
 (async function boot() {

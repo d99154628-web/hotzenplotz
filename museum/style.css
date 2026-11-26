@@ -504,3 +504,48 @@ img.bori.sleep{animation:float 5s ease-in-out infinite}
   .guide img.bori{width:68px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before{animation:none!important}}
+
+/* ===== 수업 시간 · 시상식 ===== */
+.tbadge{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-en);font-weight:600;background:var(--ink);color:#fff;border-radius:999px;padding:5px 14px;font-variant-numeric:tabular-nums;font-size:1.05rem}
+.tbadge.big{font-size:1.6rem;padding:6px 20px}
+.tbadge.set{background:var(--mint-l);color:var(--ink);font-family:var(--f-display);font-weight:400}
+.tbadge.hurry{background:var(--bad);animation:tpulse 1s ease-in-out infinite}
+@keyframes tpulse{50%{transform:scale(1.07)}}
+.timebox{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.timebox .presets{display:flex;flex-wrap:wrap;gap:6px;margin-left:6px}
+.timebox .presets .btn[aria-pressed="true"]{background:var(--mint);color:#fff;border-color:var(--mint)}
+.btn.stopbtn{background:linear-gradient(180deg,#f28b7a,var(--bad));box-shadow:0 4px 0 #a83a26;margin-left:auto}
+.bbhead .tbadge{margin-left:auto}.bbhead .tbadge + .btn{margin-left:0}
+.award{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:18px;min-height:calc(100vh - 60px);background:var(--card);border:2px solid var(--line);border-radius:24px;padding:clamp(18px,3vw,36px)}
+.awhead{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.awhead h1{font-size:clamp(2.2rem,5vw,3.8rem)}
+.awhead p{font-size:1.3rem;color:var(--ink-2)}
+.awbtns{margin-left:auto;display:flex;gap:8px}
+.champ{display:flex;align-items:center;justify-content:center;gap:24px;padding:22px;border-radius:24px;background:linear-gradient(135deg,var(--gold-l),#fff);border:4px solid var(--gold);animation:champin .9s cubic-bezier(.2,1.6,.4,1) both}
+.champ div{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.champ small{font-family:var(--f-display);font-size:1.4rem;color:var(--ink-2)}
+.champ b{font-family:var(--f-display);font-weight:400;font-size:clamp(2.6rem,7vw,5rem);color:var(--gc)}
+.champ span:not(.trophy){font-family:var(--f-en);font-weight:700;font-size:2rem}
+.champ .trophy{font-size:clamp(3rem,7vw,5.5rem);animation:bounce 1s ease-in-out infinite}
+.champ.mystery{background:var(--wall-2);border-color:var(--line);animation:shake .25s linear infinite}
+.champ.mystery b{color:var(--ink-2)}
+@keyframes champin{from{transform:scale(.3);opacity:0}}
+@keyframes bounce{50%{transform:translateY(-10px) rotate(-6deg)}}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.awlist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.awlist li{display:grid;grid-template-columns:90px 1fr auto;align-items:center;gap:14px;padding:12px 20px;border-radius:16px;border:2px solid var(--line);background:#fff;font-family:var(--f-display);font-size:clamp(1.3rem,2.6vw,2rem);transition:all .5s}
+.awlist li.off{opacity:.45;background:var(--wall-2);color:var(--muted)}
+.awlist li.on{border-color:var(--gc);box-shadow:inset 10px 0 0 var(--gc);animation:rankin .6s cubic-bezier(.2,1.4,.4,1) both}
+.awlist li.gold.on{background:var(--gold-l);border-width:3px}
+.awlist .md{font-size:1.3em;text-align:center}
+.awlist .as{font-family:var(--f-en);font-weight:700}
+@keyframes rankin{from{transform:translateX(-40px) scale(.95);opacity:0}}
+.ties{background:var(--fate-l);border-radius:16px;padding:14px 20px}
+.ties h3{font-size:1.4rem;margin-bottom:6px}
+.ties ul{margin:0 0 6px;padding-left:4px;list-style:none;display:grid;gap:4px;font-size:1.1rem}
+.ties small{color:var(--ink-2)}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:10px;height:16px;animation:fall linear forwards}
+@keyframes fall{to{top:110%;transform:translateX(60px) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.champ,.champ .trophy,.awlist li.on,.tbadge.hurry,.champ.mystery{animation:none}}
+.tienote{font-size:.95rem;color:var(--ink-2);background:var(--fate-l);border-radius:12px;padding:8px 14px;max-width:520px}
