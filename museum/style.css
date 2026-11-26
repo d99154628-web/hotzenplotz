@@ -549,3 +549,11 @@ img.bori.sleep{animation:float 5s ease-in-out infinite}
 @keyframes fall{to{top:110%;transform:translateX(60px) rotate(720deg)}}
 @media (prefers-reduced-motion:reduce){.champ,.champ .trophy,.awlist li.on,.tbadge.hurry,.champ.mystery{animation:none}}
 .tienote{font-size:.95rem;color:var(--ink-2);background:var(--fate-l);border-radius:12px;padding:8px 14px;max-width:520px}
+.award{min-height:auto;gap:12px;padding:clamp(14px,2.2vw,28px)}
+.awhead .bori,.awhead svg{width:84px;height:auto}
+.champ{padding:10px 18px}
+.champ b{font-size:clamp(2.2rem,5.5vw,4rem)}
+.awlist{gap:8px}
+.awlist li{padding:8px 18px}
+.awlist.many li{padding:5px 16px;font-size:clamp(1.15rem,2.1vw,1.6rem)}
+.awlist.many li.gold.on{padding:9px 16px}
