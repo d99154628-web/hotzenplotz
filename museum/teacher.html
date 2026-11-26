@@ -57,8 +57,9 @@ function setSize() {
 const lim = () => D.limit ? D.limit : setSize();
 function groupStats(g) {
   const m = D.students.filter(s => s.g === g), L = lim();
-  const q = m.reduce((a, s) => a + Math.min(s.qi, L), 0), r = m.reduce((a, s) => a + s.right, 0);
-  return { m, prog: m.length ? q / (m.length * L) : 0, acc: q ? r / q : null, done: m.filter(s => s.done || s.qi >= L).length };
+  const progress = m.reduce((a, s) => a + Math.min(s.qi, L), 0);
+  const q = m.reduce((a, s) => a + s.qi, 0), r = m.reduce((a, s) => a + s.right, 0);
+  return { m, prog: m.length ? progress / (m.length * L) : 0, acc: q ? r / q : null, done: m.filter(s => s.qi >= L).length };
 }
 function ago(t) { if (!t) return ''; const s = Math.round((D.now - t) / 1000); return s < 60 ? `${Math.max(s, 0)}초 전` : `${Math.floor(s / 60)}분 전`; }
 
@@ -169,9 +170,9 @@ function controls() {
    <div class="ctlgrid">
     <div class="ctlrow"><span class="lab">모둠 수</span><div class="count-row" role="group" aria-label="모둠 수">${[2, 3, 4, 5, 6, 7, 8].map(k => `<button data-act="n" data-n="${k}" aria-pressed="${n === k}">${k}</button>`).join('')}</div>
      ${D.students.some(s => s.g >= n) ? `<p class="tnote warn">줄인 모둠에 들어가 있던 학생은 모둠을 다시 골라야 해요.</p>` : ''}</div>
-    <div class="ctlrow"><span class="lab">한 사람이 푸는 문제 수</span>
-     <select class="sel big" data-act-change="limit" aria-label="한 사람이 푸는 문제 수">${lims.map(v => `<option value="${v}" ${(D.limit || 0) === v || (v === 0 && D.limit === setSize()) ? 'selected' : ''}>${v ? v + '문제' : '문제 은행 ' + setSize() + '문제 한 번씩'}</option>`).join('')}</select>
-     <small class="hint">학생마다 순서가 다르게 무작위로 나와요. 틀린 문제는 몇 문제 뒤에 다시 나오고, 문제 은행보다 많이 고르면 나왔던 문제가 다시 섞여 나와요.</small></div>
+    <div class="ctlrow"><span class="lab">한 사람당 목표 문제 수</span>
+     <select class="sel big" data-act-change="limit" aria-label="한 사람당 목표 문제 수">${lims.map(v => `<option value="${v}" ${(D.limit || 0) === v || (v === 0 && D.limit === setSize()) ? 'selected' : ''}>${v ? v + '문제' : '문제 은행 ' + setSize() + '문제'}</option>`).join('')}</select>
+     <small class="hint">목표를 채운 뒤에도 폐관할 때까지 문제가 계속 나와요. 문제 은행을 다 풀면 다시 섞이고, 틀린 문제도 몇 문제 뒤에 다시 나올 수 있어요.</small></div>
    </div>
    <div class="ctlrow"><span class="lab">모둠 이름</span><div class="names">${Array.from({ length: n }, (_, i) => `<label for="gn${i}"><span><span class="dot" style="background:${TEAMC[i]}"></span> ${i + 1}번 모둠</span><input id="gn${i}" data-gn="${i}" value="${esc(D.allNames[i])}" maxlength="12"></label>`).join('')}</div>
     <div><button class="btn ghost small" data-act="names">모둠 이름 저장</button></div></div>
@@ -184,19 +185,19 @@ function groupCard(g) {
   const st = groupStats(g), L = lim(), sc = D.totals[g], d = D._d[g] || 0;
   const rank = D.totals.slice().sort((a, b) => b - a).indexOf(sc) + 1;
   const rows = st.m.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true })).map(s => {
-    const qi = Math.min(s.qi, L), done = s.done || s.qi >= L, idle = !done && D.open === 'open' && D.now - s.updated > 120000;
+    const qi = s.qi, idle = D.open === 'open' && D.now - s.updated > 120000;
     const acc = qi ? Math.round(s.right / qi * 100) : null;
-    return `<li class="${done ? 'done' : idle ? 'idle' : ''}"><span class="sn" title="${esc(s.name)}">${esc(s.name)}</span>
-      <span class="bar" aria-label="${qi}/${L}문제"><i style="width:${qi / L * 100}%"></i></span><span class="qn">${qi}/${L}</span>
+    return `<li class="${idle ? 'idle' : ''}"><span class="sn" title="${esc(s.name)}">${esc(s.name)}</span>
+      <span class="bar" aria-label="${qi}/${L}문제"><i style="width:${Math.min(qi, L) / L * 100}%"></i></span><span class="qn">${qi}/${L}</span>
       <span class="acc">${acc == null ? '–' : acc + '%'}</span><span class="pt ${s.pts < 0 ? 'neg' : ''}">${s.pts > 0 ? '+' : ''}${s.pts}</span>
-      <span class="stt">${done ? '완료' : idle ? `멈춤 ${ago(s.updated)}` : D.open === 'open' ? '풀이 중' : '대기'}</span></li>`;
+      <span class="stt">${idle ? `멈춤 ${ago(s.updated)}` : D.open === 'open' ? '풀이 중' : D.open === 'closed' ? '종료' : '대기'}</span></li>`;
   }).join('');
   return `<article class="gcard" style="--gc:${TEAMC[g]}">
    <div class="ghead"><span class="gname"><span class="dot" style="background:var(--gc)"></span>${esc(D.names[g])}</span><span class="grank">${sc > 0 ? rank + '위' : ''}</span></div>
    <div class="gscore"><span class="num" data-sc data-from="${sc - d}" data-to="${sc}">${sc - d}</span><small>점</small>${D.shields[g] ? `<span class="sh" title="우산 논라">☂️${D.shields[g] > 1 ? '×' + D.shields[g] : ''}</span>` : ''}
     ${d ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${d}</span>` : ''}
     <span class="adj"><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="-10" aria-label="${esc(D.names[g])} 10점 빼기">−10</button><button class="btn ghost small" data-act="adj" data-g="${g}" data-d="10" aria-label="${esc(D.names[g])} 10점 더하기">+10</button></span></div>
-   <div class="gstats"><span>참가 <b>${st.m.length}</b>명</span><span>진행 <b>${Math.round(st.prog * 100)}%</b></span><span>정답률 <b>${st.acc == null ? '–' : Math.round(st.acc * 100) + '%'}</b></span><span>완료 <b>${st.done}</b>명</span></div>
+   <div class="gstats"><span>참가 <b>${st.m.length}</b>명</span><span>진행 <b>${Math.round(st.prog * 100)}%</b></span><span>정답률 <b>${st.acc == null ? '–' : Math.round(st.acc * 100) + '%'}</b></span><span>목표 달성 <b>${st.done}</b>명</span></div>
    <div class="gprog"><i style="width:${st.prog * 100}%"></i></div>
    ${st.m.length ? `<ul class="members"><li class="mh"><span class="sn">이름</span><span class="bar">진행</span><span class="qn"></span><span class="acc">정답률</span><span class="pt">점수</span><span class="stt">상태</span></li>${rows}</ul>` : `<p class="empty">아직 들어온 학생이 없어요.</p>`}
   </article>`;
@@ -208,10 +209,10 @@ function feedList(n) {
 }
 function monitor() {
   const all = D.students.length, L = lim();
-  const done = D.students.filter(s => s.done || s.qi >= L).length;
+  const done = D.students.filter(s => s.qi >= L).length;
   const lost = D.students.filter(s => s.g >= D.n);
   return `<section class="mon">
-   <div class="monhead"><h2>모둠별 상황</h2><span>들어온 학생 <b>${all}</b>명 · 다 푼 학생 <b>${done}</b>명 · 한 사람당 <b>${L}</b>문제</span></div>
+   <div class="monhead"><h2>모둠별 상황</h2><span>들어온 학생 <b>${all}</b>명 · 목표를 채운 학생 <b>${done}</b>명 · 한 사람당 목표 <b>${L}</b>문제</span></div>
    <div class="gcards">${D.totals.map((_, g) => groupCard(g)).join('')}</div>
    ${lost.length ? `<p class="tnote warn">모둠을 다시 골라야 하는 학생: ${lost.map(s => esc(s.name)).join(', ')}</p>` : ''}
    <div class="sidecols">
@@ -427,7 +428,7 @@ async function login() {
 app.addEventListener('input', e => { tInput(e.target); });
 app.addEventListener('change', e => {
   const t = e.target; if (tInput(t)) return;
-  if (t.dataset.actChange === 'limit') { const v = +t.value; config({ limit: v }, `한 사람이 ${v ? v + '문제씩' : '전체 문제를'} 풀어요.`); }
+  if (t.dataset.actChange === 'limit') { const v = +t.value; config({ limit: v }, `한 사람당 목표는 ${v || setSize()}문제예요.`); }
 });
 app.addEventListener('keydown', e => {
   if (e.target.id === 'pw' && e.key === 'Enter') login();

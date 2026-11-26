@@ -43,18 +43,22 @@ async function loadSet() {
   SET = DEFAULT_SET;
 }
 const Q = () => SET.questions[S.order[S.qi]];
-const limit = () => { const n = SET ? SET.questions.length : 0; return G && G.limit ? G.limit : n; };
+const goal = () => { const n = SET ? SET.questions.length : 0; return G && G.limit ? G.limit : n; };
 /* 문제 순서: 섞어서 줄 세우고, 모자라면 다시 섞어 이어 붙임 (같은 문제가 바로 이어지지 않게) */
 function extendOrder(o, need) {
-  const n = SET.questions.length;
-  while (o.length < need + 2) { let s = shuffle(SET.questions.map((_, k) => k)); if (o.length && s[0] === o[o.length - 1]) s.push(s.shift()); o = o.concat(s); }
+  while (o.length <= need) {
+    const batch = shuffle(SET.questions.map((_, k) => k));
+    if (o.length && batch[0] === o[o.length - 1]) batch.push(batch.shift());
+    o.push(...batch);
+  }
   return o;
 }
-function newOrder() { return extendOrder([], limit()); }
+function newOrder() { return extendOrder([], 0); }
 /* 틀린 문제는 몇 문제 뒤에 다시 나옴 */
 function requeue() {
   const k = S.order[S.qi], at = S.qi + 4 + Math.floor(Math.random() * 4);
-  if (at < limit()) S.order.splice(at, 0, k);
+  extendOrder(S.order, at);
+  if (S.order[at - 1] !== k && S.order[at] !== k) S.order.splice(at, 0, k);
 }
 function prepQ() {
   const q = Q(); S.typed = ''; S.built = [];
@@ -84,20 +88,19 @@ function route() {
   if (S && S.sid !== G.sid) { S = null; lsSet('me', ''); joinMsg = '선생님이 새 수업을 시작했어요. 모둠을 다시 골라 주세요.'; }
   if (S && S.group >= G.n) { S.screen = 'join'; draft.group = null; draft.name = S.name; joinMsg = '모둠 수가 바뀌었어요. 모둠을 다시 골라 주세요.'; }
   if (!S || S.screen === 'join') return;
-  if (S.order.length < limit()) S.order = extendOrder(S.order, limit());
   const before = S.screen;
-  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase) && !BoxQueue.load().length) S.screen = 'end'; }
-  else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
-  else {
-    if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
-    if (S.screen === 'game' && S.phase === 'q' && S.qi >= limit()) finish();
+  if (S.phase === 'q' && (before === 'done' || !Q())) {
+    extendOrder(S.order, S.qi);
+    prepQ();
   }
+  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase) && !BoxQueue.load().length) S.screen = 'end'; }
+  else S.screen = G.open === 'wait' ? 'wait' : 'game';
   if (before !== S.screen) {
     if (S.screen === 'game' && before === 'wait') SFX.bell();
     if (S.screen === 'end') SFX.finale();
   }
   if (S.screen === 'end') BGM.play('bgm_opening', .4);
-  else if (['wait', 'game', 'done'].includes(S.screen)) BGM.play('bgm_dream_loop', .3);
+  else if (['wait', 'game'].includes(S.screen)) BGM.play('bgm_dream_loop', .3);
 }
 
 async function poll() {
@@ -119,9 +122,9 @@ async function poll() {
 const shortName = () => esc(S.name.replace(/^\d+\s*(번)?\s*/, '') || S.name);
 function header() {
   const g = S && S.screen === 'game';
-  const prog = !S ? 0 : (S.screen === 'end' || S.screen === 'done') ? 1 : Math.min(S.qi / Math.max(limit(), 1), 1);
+  const prog = !S ? 0 : S.screen === 'end' ? 1 : Math.min(S.qi / Math.max(goal(), 1), 1);
   return `<header class="top"><div class="brand"><span class="logo">${boriSVG(S && S.phase === 'wrong' ? 'oops' : S && S.phase === 'right' ? 'happy' : 'idle', 52)}</span><div><small>${esc(G && G.setTitle || DEFAULT_SET.title)}</small><h1>보리봇의 세계 문화 박물관</h1></div></div>
-  ${S && S.screen !== 'join' ? `<div class="toolbar">${timerBadge()}${memoryBar(prog)}${g ? `<span class="chip">${Math.min(S.qi + 1, limit())} / ${limit()}</span>` : ''}
+  ${S && S.screen !== 'join' ? `<div class="toolbar">${timerBadge()}${memoryBar(prog)}${g ? `<span class="chip">목표 ${goal()}문제</span>` : ''}
     <span class="who"><span class="dot" style="background:${TEAMC[S.group]}"></span>${esc(G.names[S.group])} · ${esc(S.name)}</span>
     <button class="iconbtn" data-act="music" aria-label="배경 음악 켜기/끄기" aria-pressed="${BGM.on}" title="배경 음악">${BGM.on ? '🎵' : '<s>🎵</s>'}</button>
     <button class="iconbtn" data-act="mute" aria-label="모든 소리 켜기/끄기" title="모든 소리">${muted ? '🔇' : '🔊'}</button></div>` : ''}</header>`;
@@ -208,7 +211,7 @@ function gallery() {
   const q = Q(), kind = qKind(q);
   let v = '';
   if (S.phase === 'right') v = `<div class="verdict ok"><span>정답이에요! 캡슐 머신을 돌릴 수 있어요.</span><button class="btn" data-act="tobox">🎁 캡슐 머신으로</button></div>`;
-  if (S.phase === 'wrong') v = `<div class="verdict no"><span>아쉬워요. 정답은 <b class="ans">${esc(qAnswer(q))}</b>${kind === 'choice' ? ` (${q.a + 1}번)` : ''}<small>이 문제는 조금 뒤에 다시 나올 수 있어요.</small></span><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button></div>`;
+  if (S.phase === 'wrong') v = `<div class="verdict no"><span>아쉬워요. 정답은 <b class="ans">${esc(qAnswer(q))}</b>${kind === 'choice' ? ` (${q.a + 1}번)` : ''}<small>이 문제는 조금 뒤에 다시 나올 수 있어요.</small></span><button class="btn" data-act="next"${G.open === 'closed' ? ' disabled' : ''}>다음 문제</button></div>`;
   const ex = q.img ? `<figure class="vitrine"><span class="spot"></span><img class="ex" src="${EXIMG(q.img)}" alt="${esc(EXHIBIT[q.img] ? EXHIBIT[q.img].kr : '')}"><img class="ped" src="${IMG('pedestal')}" alt=""><figcaption>No. ${String(S.order[S.qi] + 1).padStart(2, '0')}</figcaption></figure>` : '';
   return `<section class="gallery ${S.phase}" aria-live="polite">
    <div class="guide">${boriSVG(S.phase === 'right' ? 'happy' : S.phase === 'wrong' ? 'oops' : 'idle', 92)}
@@ -226,7 +229,7 @@ function machine() {
   } else if (S.phase === 'opening') {
     bottom = S.err ? `<p class="result">${esc(S.err)}</p><button class="btn" data-act="retry">다시 열기</button>` : `<p class="result opening">캡슐을 여는 중이에요…</p>`;
   } else if (opened) {
-    bottom = `<p class="result">${esc(S.msg)}</p><button class="btn" data-act="next">${S.qi + 1 >= limit() ? '마지막 문제 끝!' : '다음 문제'}</button>`;
+    bottom = `<p class="result">${esc(S.msg)}</p><button class="btn" data-act="next"${G.open === 'closed' ? ' disabled' : ''}>다음 문제</button>`;
   } else bottom = `<p class="pickhint">마음에 드는 캡슐을 하나 눌러 보세요.</p>`;
   return `<section class="card machinecard"><h2>${shortName()}, 캡슐을 하나 골라요!</h2>
    <div class="machine"><img class="cmimg" src="${IMG('capsule_machine')}" alt="캡슐 머신"><div class="dome">${S.boxes.map((id, i) => {
@@ -243,11 +246,7 @@ function reveal(bottom) {
    <span class="kind ${x.kind}">${KINDNAME[x.kind]}</span><h3>${x.name}</h3><p class="fx">${x.fx}</p><p class="enfx">“${esc(x.en)}”</p>${bottom}</div></div>`;
 }
 function myStats() {
-  return `<div class="mystats"><div><span>맞힌 문제</span><b>${S.right} / ${Math.min(S.qi, limit())}</b></div><div><span>우리 모둠에 보탠 점수</span><b>${S.myPts > 0 ? '+' : ''}${S.myPts}</b></div><div><span>연 캡슐</span><b>${S.opened}</b></div></div>`;
-}
-function doneScreen() {
-  return `${header()}${board()}${feedLine()}<section class="card waitcard">${boriSVG('happy', 120)}
-   <h2>보리의 기억을 모두 되찾았어요!</h2><p>선생님이 박물관 문을 닫을 때까지 모둠 점수판을 지켜보세요. 친구들의 캡슐이 아직 열리고 있어요.</p>${myStats()}</section>`;
+  return `<div class="mystats"><div><span>맞힌 문제</span><b>${S.right} / ${S.qi + (S.phase === 'q' ? 0 : 1)}</b></div><div><span>우리 모둠에 보탠 점수</span><b>${S.myPts > 0 ? '+' : ''}${S.myPts}</b></div><div><span>연 캡슐</span><b>${S.opened}</b></div></div>`;
 }
 function endScreen() {
   const idx = G.totals.map((_, i) => i);
@@ -261,7 +260,6 @@ function render() {
   if (!G) return;
   if (!S || S.screen === 'join') app.innerHTML = joinScreen();
   else if (S.screen === 'wait') app.innerHTML = waitScreen();
-  else if (S.screen === 'done') app.innerHTML = doneScreen();
   else if (S.screen === 'end') app.innerHTML = endScreen();
   else app.innerHTML = header() + board() + feedLine() + (['box', 'target', 'opening', 'opened'].includes(S.phase) ? machine() : gallery());
   countUp(app);
@@ -295,7 +293,6 @@ async function join() {
   } catch (e) { joinMsg = '인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   busy = false; render();
 }
-function finish() { S.screen = 'done'; SendQueue.push({ action: 'finish', sid: S.sid, id: S.id }); SFX.good(); }
 function grade(ok, ansText) {
   const q = Q();
   S.phase = ok ? 'right' : 'wrong'; if (ok) S.right++; else requeue();
@@ -342,8 +339,10 @@ function openBox() {
   render();
 }
 function nextQ() {
+  if (G.open !== 'open') return;
   S.qi++; S.phase = 'q'; S.picked = null; S.chosen = null; S.boxes = []; S.msg = ''; S.target = null;
-  if (S.qi >= limit()) finish(); else { prepQ(); SFX.tick(); }
+  extendOrder(S.order, S.qi);
+  prepQ(); SFX.tick();
   route();
 }
 function focusTyped() { const t = document.getElementById('typed'); if (t && !t.disabled) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
