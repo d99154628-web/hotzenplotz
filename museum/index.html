@@ -86,7 +86,7 @@ function route() {
   if (!S || S.screen === 'join') return;
   if (S.order.length < limit()) S.order = extendOrder(S.order, limit());
   const before = S.screen;
-  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase)) S.screen = 'end'; }
+  if (G.open === 'closed') { if (!['opening', 'target'].includes(S.phase) && !BoxQueue.load().length) S.screen = 'end'; }
   else if (G.open === 'wait') { if (S.screen !== 'done') S.screen = 'wait'; }
   else {
     if (S.screen === 'wait' || S.screen === 'end') S.screen = S.qi >= limit() ? 'done' : 'game';
@@ -302,22 +302,43 @@ function grade(ok, ansText) {
   SFX[ok ? 'correct' : 'wrong']();
   SendQueue.push({ action: 'answer', sid: S.sid, id: S.id, group: S.group, name: S.name, qi: S.qi, qid: S.order[S.qi], qn: (q.en ? q.q + ' / ' + q.en.replace(/\n/g, ' ') : q.q).slice(0, 120), ans: ansText, ok, eid: uid() });
 }
-async function openBox() {
-  S.phase = 'opening'; S.err = ''; render();
+/* 캡슐은 누르자마자 열고, 점수 반영은 뒤에서 서버로 보냄 (서버를 기다리지 않음) */
+const BoxQueue = {
+  key: 'boxq', busy: false,
+  load() { try { return JSON.parse(lsGet(this.key) || '[]'); } catch (e) { return []; } },
+  save(q) { lsSet(this.key, JSON.stringify(q)); },
+  push(p) { const q = this.load(); if (!q.some(x => x.eid === p.eid)) { q.push(p); this.save(q); } this.flush(); },
+  async flush() {
+    if (this.busy) return; this.busy = true;
+    try {
+      let q = this.load();
+      while (q.length) {
+        const p = q[0], r = await api(p);
+        if (r && r.ok) boxDone(p, r);
+        else if (!(r && (r.error === 'sid' || r.error === 'item'))) throw new Error('box');
+        q = this.load(); q = q.filter(x => x.eid !== p.eid); this.save(q);
+      }
+    } catch (e) { setTimeout(() => this.flush(), 3000); }
+    finally { this.busy = false; }
+  }
+};
+function boxDone(p, r) {
+  takeState(r, true);
+  if (!S || S.id !== p.id) return;
+  S.myPts += r.mine || 0;
+  if (S.waitEid === p.eid && S.phase === 'opened') { S.msg = r.msg; S.waitEid = null; }
+  else toast(`내 캡슐: ${esc(r.msg)}`, (r.mine || 0) >= 0 ? 'up' : 'down');
+  route();
+  const ae = document.activeElement;
+  if (!(ae && (ae.id === 'myname' || ae.id === 'typed'))) render();
+}
+function openBox() {
   const id = S.boxes[S.chosen];
-  if (!S.eid) S.eid = uid();
-  saveMe();
-  try {
-    const r = await api({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: id, target: S.target, myPts: S.myPts, eid: S.eid }, 4);
-    if (!r || !r.ok) {
-      if (r && r.error === 'sid') { takeState(r.state); route(); render(); return; }
-      throw new Error('box');
-    }
-    takeState(r, true);
-    S.msg = r.msg; S.myPts += r.mine || 0; S.opened++; S.phase = 'opened'; S.eid = null;
-    const k = item(id).kind; setTimeout(() => SFX[k === 'g' ? 'good' : k === 'b' ? 'bad' : 'fate'](), 250);
-    route();
-  } catch (e) { S.err = '인터넷이 잠깐 끊겼어요. 아래 버튼을 눌러 다시 열어 주세요.'; }
+  const eid = S.eid || uid();
+  S.eid = null; S.err = ''; S.phase = 'opened'; S.opened++; S.waitEid = eid;
+  S.msg = '보리가 모둠 점수판에 적고 있어요… 바로 다음 문제로 가도 돼요!';
+  const k = item(id).kind; setTimeout(() => SFX[k === 'g' ? 'good' : k === 'b' ? 'bad' : 'fate'](), 150);
+  BoxQueue.push({ action: 'box', sid: S.sid, id: S.id, group: S.group, name: S.name, item: id, target: S.target, myPts: S.myPts, eid });
   render();
 }
 function nextQ() {
@@ -356,7 +377,7 @@ app.addEventListener('click', e => {
   else if (a === 'tobox') { SFX.whoosh(); S.boxes = makeBoxes(); S.chosen = null; S.phase = 'box'; }
   else if (a === 'box') {
     if (S.chosen != null) return; S.chosen = i; SFX.open();
-    if (item(S.boxes[i]).tgt && G.n > 1) S.phase = 'target'; else { S.target = null; setTimeout(openBox, 650); render(); return; }
+    if (item(S.boxes[i]).tgt && G.n > 1) S.phase = 'target'; else { S.target = null; setTimeout(openBox, 350); render(); return; }
   }
   else if (a === 'target') { S.target = i; SFX.pick(); openBox(); return; }
   else if (a === 'retry') { openBox(); return; }
@@ -381,12 +402,12 @@ app.addEventListener('click', e => {
     S = me;
     if (S.order.some(k => !SET.questions[k])) { S.order = newOrder(); S.qi = 0; }
     if (S.phase === 'q' && !S.tiles && Q() && Q().w) prepQ();
-    if (S.phase === 'opening') setTimeout(openBox, 50);
+    if (S.phase === 'opening') { S.eid = S.eid || uid(); openBox(); }
     draft.group = S.group; draft.name = S.name || '';
   }
   route(); render();
   if (DEMO) toast('연습 모드예요. 기록은 이 브라우저에만 저장돼요.', '');
-  SendQueue.flush();
+  SendQueue.flush(); BoxQueue.flush();
   setInterval(poll, DEMO ? 2500 : 5000);
   setInterval(() => {
     const l = leftMs();
