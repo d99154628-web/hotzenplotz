@@ -557,3 +557,5 @@ img.bori.sleep{animation:float 5s ease-in-out infinite}
 .awlist li{padding:8px 18px}
 .awlist.many li{padding:5px 16px;font-size:clamp(1.15rem,2.1vw,1.6rem)}
 .awlist.many li.gold.on{padding:9px 16px}
+.awlist.many ~ .ties{padding:10px 16px}
+.award:has(.awlist.many) .champ{padding:6px 16px}.award:has(.awlist.many) .champ .trophy{font-size:clamp(2.4rem,5vw,3.6rem)}
