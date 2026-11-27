@@ -31,7 +31,10 @@
         insertSheet: n => { save('sheets', names().concat([n])); return Sheet(n); }
       }) },
       PropertiesService: { getScriptProperties: () => ({ getProperty: k => store.get('prop:' + k), setProperty: (k, v) => store.set('prop:' + k, v) }) },
-      CacheService: { getScriptCache: () => ({ get: k => store.get('cache:' + k), put: (k, v) => store.set('cache:' + k, v), remove: k => store.del('cache:' + k) }) },
+      CacheService: { getScriptCache: () => ({
+        get: k => { try { const o = JSON.parse(store.get('cache:' + k) || 'null'); return o && o.e > Date.now() ? o.v : null; } catch (e) { return null; } },
+        put: (k, v, ttl) => store.set('cache:' + k, JSON.stringify({ v, e: Date.now() + (ttl || 600) * 1000 })),
+        remove: k => store.del('cache:' + k) }) },
       LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
       ContentService: { createTextOutput: s => ({ s, setMimeType() { return this; } }), MimeType: { JSON: 'json' } }
     };

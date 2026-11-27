@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=1127">
 <link rel="icon" type="image/png" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/icon.png">
 <style>
@@ -45,6 +45,7 @@ main{max-width:1280px}
 .big .bar{height:46px}
 .big .board{gap:22px;margin-top:30px}
 .gate{max-width:420px;margin:80px auto}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:var(--ink);color:#fff;font-family:'Jua',sans-serif;font-size:20px;padding:10px 22px;border-radius:14px;box-shadow:var(--shadow);transition:opacity .3s;pointer-events:none}
 .clock{font-family:'Jua',sans-serif;font-size:30px;padding:4px 14px;border:2px solid var(--ink);border-radius:14px;background:#fff;min-width:110px;text-align:center}
 .clock.low{color:var(--no)}
 .solo{display:grid;grid-template-columns:60px 1fr 150px 80px 90px 130px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px dashed var(--line);font-size:17px}
@@ -61,8 +62,8 @@ main{max-width:1280px}
 <div class="dan"></div>
 <main id="app"></main>
 <div id="bigview"></div>
-<script src="demo.js"></script>
-<script src="common.js"></script>
+<script src="demo.js?v=1127"></script>
+<script src="common.js?v=1127"></script>
 <script>
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -86,7 +87,36 @@ function gate(msg) {
 }
 async function call(p) { try { return await api(Object.assign({ pw: PW }, p), 2); } catch (e) { return null; } }
 function start() { clearInterval(timer); timer = setInterval(refresh, 4000); }
-async function refresh() { if (editing) return; const r = await call({ action: 'dash' }); if (r && r.ok) { setD(r); render(); } else if (r && r.error === 'pw') { sessionStorage.removeItem('tuho-pw'); gate('비밀번호를 다시 입력해 주세요.'); } }
+/* 버튼을 누른 동안에는 자동 새로 고침 결과를 버림 (옛날 상태가 화면을 덮어써서 버튼이 안 눌린 것처럼 보이던 문제) */
+let actSeq = 0, pending = 0, refreshing = false;
+async function refresh() {
+  if (editing || pending || refreshing) return;
+  refreshing = true; const seq = actSeq;
+  try {
+    const r = await call({ action: 'dash' });
+    if (seq !== actSeq || pending) return;
+    if (r && r.ok) { setD(r); render(); } else if (r && r.error === 'pw') { sessionStorage.removeItem('tuho-pw'); gate('비밀번호를 다시 입력해 주세요.'); }
+  } finally { refreshing = false; }
+}
+/* 교사 버튼 공통: 화면을 먼저 바꾸고(낙관적 반영) 서버에 보냄 */
+async function act(payload, optimistic, btn) {
+  actSeq++; pending++;
+  const backup = D && JSON.parse(JSON.stringify(D));
+  if (optimistic && D) { optimistic(D); render(); }
+  toast('⏳ 저장하는 중…');
+  try {
+    const r = await call(payload);
+    if (r && r.ok) { setD(r); render(); toast('✅ 반영됐어요', 1200); return r; }
+    if (backup) { D = backup; render(); }
+    toast('⚠️ 연결이 늦어요. 한 번 더 눌러 주세요.', 2500); return null;
+  } finally { pending--; actSeq++; }
+}
+let toastT = null;
+function toast(msg, hide) {
+  let el = $('#toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.style.opacity = 1; clearTimeout(toastT);
+  if (hide) toastT = setTimeout(() => el.style.opacity = 0, hide);
+}
 
 function boardRows() {
   if (SOLO()) { const arr = soloRanked(), max = Math.max(50, ...arr.map(x => x.p)); return `<div class="board">${arr.slice(0, 10).map(x => `<div class="brow"><div class="rk">${x.rk === 1 && x.p > 0 ? '👑' : x.rk}</div><div class="nm">${esc(x.n)}</div><div class="bar"><i style="width:${Math.round(x.p / max * 100)}%;background:var(--blue)"></i></div><div class="pt">${x.p}</div></div>`).join('') || '<p class="small">아직 아무도 없어요</p>'}</div>`; }
@@ -101,7 +131,7 @@ const mmss = ms => { const t = Math.ceil(ms / 1000); return String(Math.floor(t 
 function leftMs() { if (!D) return 0; if (D.open === 'open' && D.ends) return Math.max(0, D.ends - srvNow()); if (D.open === 'wait' && D.left) return D.left; return D.open === 'wait' && D.dur ? D.dur * 60000 : 0; }
 function soloRanked() { const arr = (D.solo || []).slice().sort((a, b) => b.p - a.p); let rank = 0, prev = null; arr.forEach((x, k) => { if (x.p !== prev) { rank = k + 1; prev = x.p; } x.rk = rank; }); return arr; }
 let lastOpen = '';
-function setD(r) { D = r; if (r.now) skew = r.now - Date.now(); if (lastOpen === 'open' && D.open === 'closed') bigOn = true; if (D.open !== 'closed') paintBig.done = false; lastOpen = D.open; }
+function setD(r) { if (r.light && D) { r.hard = D.hard; } D = r; if (r.now) skew = r.now - Date.now(); if (lastOpen === 'open' && D.open === 'closed') bigOn = true; if (D.open !== 'closed') paintBig.done = false; lastOpen = D.open; }
 setInterval(() => {
   const el = $('#clock'); if (!D || !el) return;
   const ms = leftMs(); el.textContent = D.open === 'closed' ? '끝' : (D.dur || D.ends || D.left) ? (D.open === 'wait' ? '⏸ ' : '⏱ ') + mmss(ms) : '제한 없음';
@@ -137,13 +167,13 @@ function render() {
         const on = Date.now() - s.updated < 90000, pct = Math.round(s.qi / Q.length * 100), b = s.qi >= Q.length ? null : BOOTHS[Q[s.qi].b];
         return `<div class="mem"><span class="dot ${on ? 'on' : ''}" title="${ago(s.updated)}"></span>
           <div style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)} ${s.done ? '✅' : ''}</div><div class="s">${s.done ? '완주!' : b ? `${b.flag} ${b.place}` : ''} · 첫 정답 ${s.first}</div></div>
-          <div><div class="mbar"><i style="width:${pct}%;background:${TEAMC[g]}"></i></div><div class="s">${s.qi} / ${Q.length}</div></div>
+          <div><div class="mbar"><i style="width:${pct}%;background:${TEAMC[g]}"></i></div><div class="s">${s.qi} / ${Q.length}${s.bonus ? ` · 🎁${s.bonus}` : ''}</div></div>
           <div class="p">+${s.pts}</div></div>`;
       }).join('') : `<div class="small" style="padding:12px 14px">아직 들어온 학생이 없어요</div>`}</div>`;
   }).join('')}</div>`}
 
   <div class="side">
-    <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : '🏹'} ${f.solo ? '' : `<b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b>`} ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
+    <div class="card"><h3>🏹 방금 던진 화살</h3><div class="feed" style="margin-top:8px">${(D.feed || []).slice(0, 12).map(f => `<div>${f.teacher ? '🧑‍🏫' : f.gold ? '✨' : f.bonus ? '🎁' : '🏹'} ${f.solo ? '' : `<b style="color:${TEAMC[f.g]}">${esc(D.allNames[f.g] || '')}</b>`} ${esc(f.who)} <b>${f.pts > 0 ? '+' : ''}${f.pts}점</b> <span class="small">${ago(f.t)}</span></div>`).join('') || '<div class="small">아직 없어요</div>'}</div></div>
     <div class="card"><h3>🤔 많이 틀린 문제</h3><div class="feed" style="margin-top:8px">${(D.hard || []).map(h => { const q = Q[h.qi - 1]; return `<div><b>${h.qi}번</b> ${q ? esc(q.q) : ''} <span class="small">· ${h.wrong}/${h.n}명 처음에 틀림</span></div>`; }).join('') || '<div class="small">아직 없어요</div>'}</div></div>
   </div>
 
@@ -170,22 +200,30 @@ function render() {
 
 function bind() {
   app.querySelectorAll('#seg button').forEach(b => b.onclick = async () => {
-    if (b.dataset.o === 'closed' && !confirm('시상식을 열까요? 모든 학생 화면에 순위가 나타나요.')) return;
-    const r = await call({ action: 'config', open: b.dataset.o }); if (r && r.ok) { setD(r); render(); if (b.dataset.o === 'closed') { bigOn = true; paintBig(); } }
+    const o = b.dataset.o; if (D.open === o) return;
+    if (o === 'closed' && !confirm('시상식을 열까요? 모든 학생 화면에 순위가 나타나요.')) return;
+    const r = await act({ action: 'config', open: o }, d => {
+      const now = srvNow();
+      if (o === 'open') { d.ends = d.left > 0 ? now + d.left : (d.dur > 0 ? now + d.dur * 60000 : 0); d.left = 0; }
+      else if (o === 'wait') { d.left = d.open === 'open' && d.ends ? Math.max(1000, d.ends - now) : 0; d.ends = 0; }
+      else { d.ends = 0; d.left = 0; }
+      d.open = o;
+    });
+    if (r && o === 'closed') { bigOn = true; paintBig(); }
   });
-  app.querySelectorAll('[data-adj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjust', group: Number(b.dataset.adj), delta: Number(b.dataset.d) }); if (r && r.ok) { setD(r); render(); } });
+  app.querySelectorAll('[data-adj]').forEach(b => b.onclick = () => { const g = Number(b.dataset.adj), dd = Number(b.dataset.d); act({ action: 'adjust', group: g, delta: dd }, d => { d.totals[g] = Math.max(0, (d.totals[g] || 0) + dd); }); });
   app.querySelectorAll('.names input, #n, #mode, #dur').forEach(el => { el.onfocus = () => editing = true; el.onblur = () => setTimeout(() => editing = false, 300); });
   $('#saveCfg').onclick = async () => {
     const names = []; for (let i = 0; i < 8; i++) names.push($('#nm' + i).value);
     editing = false;
-    const r = await call({ action: 'config', n: Number($('#n').value), names, mode: $('#mode').value, dur: Number($('#dur').value) }); if (r && r.ok) { setD(r); render(); }
+    act({ action: 'config', n: Number($('#n').value), names, mode: $('#mode').value, dur: Number($('#dur').value) });
   };
   $('#reset').onclick = async () => {
     if (!confirm('새 수업을 시작할까요?\n모둠 점수와 학생 기록이 모두 지워지고, 학생들은 다시 입장해야 해요.\n(구글 시트의 "기록" 탭은 남아 있어요.)')) return;
-    const r = await call({ action: 'reset' }); if (r && r.ok) { setD(r); render(); }
+    act({ action: 'reset' }, d => { d.open = 'wait'; d.ends = 0; d.left = 0; d.totals = d.totals.map(() => 0); d.solo = []; d.feed = []; d.students = []; d.hard = []; });
   };
-  app.querySelectorAll('[data-time]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'time', delta: Number(b.dataset.time) }); if (r && r.ok) { setD(r); render(); } });
-  app.querySelectorAll('[data-sadj]').forEach(b => b.onclick = async () => { b.disabled = true; const r = await call({ action: 'adjustStu', id: b.dataset.sadj, delta: Number(b.dataset.d) }); if (r && r.ok) { setD(r); render(); } });
+  app.querySelectorAll('[data-time]').forEach(b => b.onclick = () => { const m = Number(b.dataset.time) * 60000; act({ action: 'time', delta: Number(b.dataset.time) }, d => { const now = srvNow(); if (d.open === 'open' && d.ends) d.ends = Math.max(now + 5000, d.ends + m); else if (d.open === 'wait' && d.left) d.left = Math.max(5000, d.left + m); }); });
+  app.querySelectorAll('[data-sadj]').forEach(b => b.onclick = () => { const id = b.dataset.sadj, dd = Number(b.dataset.d); act({ action: 'adjustStu', id, delta: dd }, d => { const x = (d.solo || []).find(y => y.id === id); if (x) x.p = Math.max(0, x.p + dd); }); });
   $('#bigBtn').onclick = () => { bigOn = true; paintBig(); };
 }
 function paintBig() {
@@ -213,10 +251,10 @@ function soloGrid(studs) {
   const arr = soloRanked(), by = {}; studs.forEach(s => by[s.id] = s);
   return `<div class="card" style="margin-top:16px;padding:0;overflow:hidden">
     <div class="solo" style="background:var(--ink);color:#fff;font-family:'Jua',sans-serif"><span>순위</span><span>이름</span><span>진행</span><span>첫 정답</span><span style="text-align:right">점수</span><span>점수 고치기</span></div>
-    ${arr.map(x => { const s = by[x.id] || { qi: 0, first: 0, updated: 0 }; const on = Date.now() - s.updated < 90000, pct = Math.round(s.qi / Q.length * 100), md = ['🥇', '🥈', '🥉'][x.rk - 1];
+    ${arr.map(x => { const s = by[x.id] || { qi: 0, first: 0, updated: 0, bonus: 0 }; const on = Date.now() - s.updated < 90000, pct = Math.round(s.qi / Q.length * 100), md = ['🥇', '🥈', '🥉'][x.rk - 1];
       return `<div class="solo"><span class="rk">${md && x.p > 0 ? md : x.rk}</span>
         <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="dot ${on ? 'on' : ''}" style="display:inline-block;margin-right:6px"></span>${esc(x.n)} ${s.done ? '✅' : ''}</span>
-        <span><div class="mbar"><i style="width:${pct}%;background:var(--blue)"></i></div><span class="small">${s.qi} / ${Q.length}</span></span>
+        <span><div class="mbar"><i style="width:${pct}%;background:var(--blue)"></i></div><span class="small">${s.qi} / ${Q.length}${s.bonus ? ` · 🎁${s.bonus}` : ''}</span></span>
         <span>${s.first}</span><span class="p">${x.p}</span>
         <span><button data-sadj="${esc(x.id)}" data-d="5">+5</button> <button data-sadj="${esc(x.id)}" data-d="-5">−5</button></span></div>`; }).join('') || `<div class="small" style="padding:14px">아직 들어온 학생이 없어요</div>`}
   </div>`;

@@ -213,6 +213,70 @@ const Q = [
 ];
 const QN = (i) => `${i + 1}. ${BOOTHS[Q[i].b].place}`;
 
+/* =====================================================================
+ *  여분 문제 (보너스 라운드) — 부스마다 4개씩 더. 24문제를 다 푼 뒤,
+ *  부스를 골라 다시 들어가면 아직 안 푼 새 문제부터 나와요.
+ * ===================================================================== */
+const EXTRA = [
+  /* ① 투호 */
+  { b: 0, t: 'pick', art: 'tuho', q: '그림을 보고 빈칸에 알맞은 낱말을 골라요.', en: "Tuho? It's a Korean ____.", c: ['game', 'hat', 'drum'], a: 0,
+    why: '투호는 한국의 놀이(game)예요.' },
+  { b: 0, t: 'pick', art: 'tuho', say: ['Throw the arrows into the jar!'], auto: 1, q: '우주의 말을 듣고 뜻을 골라요.', en: 'Throw the arrows into the jar!',
+    c: ['화살을 항아리에 던져!', '북을 손으로 쳐!', '모자를 써 봐!'], a: 0, why: 'throw = 던지다, arrows = 화살, jar = 항아리' },
+  { b: 0, t: 'pick', art: 'jegi', q: '하나는 제기차기를 알아요. 하나가 할 대답은?', en: 'Tom: Do you know anything about jegichagi?\nHana: ____',
+    c: ["Yes, I do. It's a Korean game.", "No, I don't.", "It's like an umbrella."], a: 0, why: '알 때는 Yes, I do. 라고 하고 알려 줘요.' },
+  { b: 0, t: 'order', q: '대화가 되도록 차례대로 눌러요.', lines: ['Do you know anything about Tuho?', 'Yes, I do.', "It's a Korean game."],
+    why: '질문 → 안다는 대답 → 설명 순서예요.' },
+  /* ② 약과 */
+  { b: 1, t: 'pick', art: 'yakgwa', q: '그림을 보고 빈칸에 알맞은 낱말을 골라요.', en: "Yakgwa? It's a Korean ____.", c: ['cookie', 'game', 'hat'], a: 0,
+    why: '약과는 한국의 과자(cookie)예요.' },
+  { b: 1, t: 'pick', art: 'yakgwa', say: ["What's this?"], auto: 1, q: '잘 듣고, 이 말의 뜻을 골라요.', en: "What's this?",
+    c: ['이것은 뭐야?', '이건 내 거야.', '정말 맛있어!'], a: 0, why: "What's this? = 이것은 뭐야?" },
+  { b: 1, t: 'pick', q: '약과에 대해 알고 있는지 묻는 말로 바른 것은?', c: ['Do you know anything about yakgwa?', 'Do you anything about know yakgwa?', 'Know you do anything about yakgwa?'], a: 0,
+    why: 'Do you know anything about + 물건? 순서예요.' },
+  { b: 1, t: 'pick', say: ['Do you know anything about yakgwa?', "Yes, I do. It's a Korean cookie."], auto: 1,
+    q: '잘 듣고 골라요. 대답한 친구는 약과를 알고 있을까요?', c: ['알아요', '몰라요'], a: 0, why: 'Yes, I do. 라고 했으니 알아요.' },
+  /* ③ 논라 */
+  { b: 2, t: 'pick', say: ["It's a Vietnamese hat."], auto: 1, q: '잘 듣고, 알맞은 그림을 골라요.', cart: ['sari', 'nonla', 'djembe'], c: ['saris', 'nón lá', 'djembes'], a: 1,
+    why: 'Vietnamese hat(베트남의 모자)은 논라예요.' },
+  { b: 2, t: 'pick', art: 'umbrella', q: '빈칸에 알맞은 낱말을 골라요.', en: "We wear this on sunny and ____ days.\nIt's like an umbrella.", c: ['rainy (비 오는)', 'Korean (한국의)', 'drum (북)'], a: 0,
+    why: '논라는 맑은 날(sunny)에도 비 오는 날(rainy)에도 써요.' },
+  { b: 2, t: 'pick', art: 'nonla', q: '논라를 쓴 친구에게 "멋져 보여!"라고 할 때 알맞은 말은?', c: ['You look good!', 'I have no idea.', "No, I don't."], a: 0,
+    why: 'You look good! = 멋져 보여!' },
+  { b: 2, t: 'order', q: '대화가 되도록 차례대로 눌러요.', lines: ['Do you know anything about nón lá?', 'I have no idea.', "It's a Vietnamese hat."],
+    why: '질문 → 모른다는 대답 → 알려 주기 순서예요.' },
+  /* ④ 젬베 */
+  { b: 3, t: 'pick', art: 'djembe', say: ['Do you know anything about djembes?'], auto: 1, q: '그림을 보고 "알아!"라고 알맞게 대답해요.',
+    c: ["Yes, I do. They're African drums.", "Yes, I do. It's a Korean cookie.", "Yes, I do. They're Australian toys."], a: 0, why: '젬베는 아프리카의 북(African drums)이에요.' },
+  { b: 3, t: 'pick', art: 'hands', q: '젬베 치는 방법이에요. 빈칸에 알맞은 낱말은?', en: 'Hit it with your ____.', c: ['hands', 'hat', 'cookie'], a: 0,
+    why: '젬베는 손(hands)으로 두드려요.' },
+  { b: 3, t: 'pick', art: 'djembe', say: ['These are djembes.'], auto: 1, q: '잘 듣고, 이 말의 뜻을 골라요.', en: 'These are djembes.',
+    c: ['이것들은 젬베야.', '이것은 모자야.', '나는 젬베를 몰라.'], a: 0, why: 'These are ~ = 이것들은 ~이야.' },
+  { b: 3, t: 'pick', art: 'djembe', q: '젬베는 어디의 북일까요? 빈칸에 알맞은 낱말은?', en: "They're ____ drums.", c: ['African', 'Korean', 'Vietnamese'], a: 0,
+    why: '젬베는 아프리카(African)의 북이에요.' },
+  /* ⑤ 사리 */
+  { b: 4, t: 'pick', say: ['This is a sari.'], auto: 1, q: '잘 듣고, 알맞은 그림을 골라요.', cart: ['nonla', 'yakgwa', 'sari'], c: ['nón lá', 'yakgwa', 'a sari'], a: 2,
+    why: 'sari(사리)는 인도의 옷이에요.' },
+  { b: 4, t: 'pick', art: 'sari', q: '그림을 보고 빈칸에 알맞은 낱말을 골라요.', en: "Saris? They're Indian ____.", c: ['dresses', 'drums', 'toys'], a: 0,
+    why: '사리는 인도의 옷(dresses)이에요.' },
+  { b: 4, t: 'pick', q: '"전혀 모르겠어."를 영어로 바르게 말한 것은?', c: ['I have no idea.', 'Yes, I do.', 'You look good!'], a: 0,
+    why: '전혀 모를 때는 I have no idea. 라고 해요.' },
+  { b: 4, t: 'pick', art: 'ques', q: 'Jesse는 사리를 몰라요. Jesse가 할 대답은?', en: 'Nari: Do you know anything about saris?\nJesse: ____',
+    c: ["No, I don't.", "Yes, I do. They're Indian dresses.", "They're African drums."], a: 0, why: "모를 때는 No, I don't. 라고 해요." },
+  /* ⑥ 부메랑 */
+  { b: 5, t: 'pick', art: 'boomerang', q: '그림을 보고 빈칸에 알맞은 낱말을 골라요.', en: "Boomerangs? They're Australian ____.", c: ['toys', 'hats', 'cookies'], a: 0,
+    why: '부메랑은 호주의 장난감(toys)이에요.' },
+  { b: 5, t: 'pick', art: 'boomerang', say: ['Throw one and it comes back!'], auto: 1, q: 'Jacob의 말을 듣고, 부메랑은 어떤 장난감인지 골라요.',
+    c: ['던지면 다시 돌아와요.', '손으로 두드려요.', '머리에 써요.'], a: 0, why: 'comes back = 다시 돌아온다' },
+  { b: 5, t: 'pick', say: ['Do you know anything about boomerangs?', 'I have no idea.'], auto: 1,
+    q: '잘 듣고 골라요. 대답한 친구는 부메랑을 알고 있을까요?', c: ['몰라요', '알아요'], a: 0, why: 'I have no idea. 는 전혀 모른다는 뜻이에요.' },
+  { b: 5, t: 'order', q: '대화가 되도록 차례대로 눌러요.', lines: ['Do you know anything about boomerangs?', 'Yes, I do.', "They're Australian toys."],
+    why: '질문 → 안다는 대답 → 설명 순서예요.' }
+];
+/* 모든 문제 (앞 24개는 본 문제, 뒤는 여분 문제) */
+const ALLQ = Q.concat(EXTRA);
+
+
 /* ---------- 영어 읽어 주기 ---------- */
 let VOICES = [];
 function loadVoices() { try { VOICES = speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang)); } catch (e) { VOICES = []; } }

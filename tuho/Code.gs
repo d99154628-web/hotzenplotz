@@ -18,6 +18,7 @@
  * 점수는 올라가기만 해요. (선생님이 교사용 화면에서 고치는 것만 예외)
  *
  * [2026-11-25 추가] 개인전(mode:'solo') · 교사가 정하는 제한 시간(dur 분) · 시간이 끝나면 자동으로 시상식
+ * [2026-11-27 추가] 모둠 바꾸기 · 보너스(여분) 문제(bonus) · 교사 버튼은 가벼운 응답으로 빠르게
  */
 const PASSWORD = '2026';
 const MAX_GROUPS = 8;
@@ -34,7 +35,7 @@ function doPost(e) {
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 /* ---------- 저장소 ---------- */
-const STU_HEAD = ['학생ID', '모둠', '이름', '푼 문제', '첫 시도 정답', '기여 점수', '완료', '참가(ms)', '마지막 활동(ms)', '수업ID'];
+const STU_HEAD = ['학생ID', '모둠', '이름', '푼 문제', '첫 시도 정답', '기여 점수', '완료', '참가(ms)', '마지막 활동(ms)', '수업ID', '보너스 문제'];
 const LOG_HEAD = ['시각', '수업ID', '학생ID', '모둠', '이름', '문제 번호', '문제', '학생 답', '정오', '시도', '얻은 점수', '구멍 점수'];
 
 function sheet_(name, header) {
@@ -126,7 +127,7 @@ function handle_(p) {
     if (r >= 0) {
       s.getRange(r + 2, 2, 1, 2).setValues([[g, String(p.name || '').slice(0, 20)]]);
       s.getRange(r + 2, 9).setValue(now);
-    } else s.appendRow([String(p.id), g, String(p.name || '').slice(0, 20), 0, 0, 0, '', now, now, c.sid]);
+    } else s.appendRow([String(p.id), g, String(p.name || '').slice(0, 20), 0, 0, 0, '', now, now, c.sid, 0]);
     return publicState_();
   });
 
@@ -140,10 +141,11 @@ function handle_(p) {
     if (!OK_PTS[pts]) pts = 0;
     const now = Date.now(), { s, rows } = stuRows_();
     let r = findStu_(rows, p.id, c.sid);
-    if (r < 0) { s.appendRow([String(p.id), g, String(p.name || '').slice(0, 20), 0, 0, 0, '', now, now, c.sid]); r = rows.length; rows.push(s.getRange(r + 2, 1, 1, STU_HEAD.length).getValues()[0]); }
+    if (r < 0) { s.appendRow([String(p.id), g, String(p.name || '').slice(0, 20), 0, 0, 0, '', now, now, c.sid, 0]); r = rows.length; rows.push(s.getRange(r + 2, 1, 1, STU_HEAD.length).getValues()[0]); }
     const row = rows[r];
     row[1] = g;
-    row[3] = Math.max(Number(row[3]) || 0, Number(p.qi) + 1);
+    if (p.bonus) row[10] = (Number(row[10]) || 0) + 1;      // 보너스 문제는 진행 칸(푼 문제)을 건드리지 않음
+    else row[3] = Math.max(Number(row[3]) || 0, Number(p.qi) + 1);
     if (p.ok && Number(p.tries) === 1) row[4] = (Number(row[4]) || 0) + 1;
     row[5] = (Number(row[5]) || 0) + pts;
     if (p.done) row[6] = 'Y';
@@ -153,9 +155,9 @@ function handle_(p) {
     if (pts > 0) {
       soloAdd_(p.id, p.name, pts);
       if (!solo) { const t = totals_(); t[g] += pts; putJ_('totals', t); }
-      pushFeed_({ t: now, g: g, who: String(p.name || ''), pts: pts, gold: pts === 50, solo: solo });
+      pushFeed_({ t: now, g: g, who: String(p.name || ''), pts: pts, gold: pts === 50, solo: solo, bonus: !!p.bonus });
     }
-    sheet_('기록', LOG_HEAD).appendRow([new Date(now), c.sid, p.id, g + 1, p.name || '', Number(p.qi) + 1, p.qn || '', String(p.ans || ''), p.ok ? 'O' : 'X', Number(p.tries) || 1, pts, String(p.holes || '')]);
+    sheet_('기록', LOG_HEAD).appendRow([new Date(now), c.sid, p.id, g + 1, p.name || '', (p.bonus ? 'B' : '') + (Number(p.qi) + 1), p.qn || '', String(p.ans || ''), p.ok ? 'O' : 'X', Number(p.tries) || 1, pts, String(p.holes || '')]);
     const res = { ok: true };
     remember_(p.eid, res);
     return res;
@@ -181,7 +183,7 @@ function handle_(p) {
       c.open = p.open;
     }
     putJ_('cfg', c);
-    return dash_();
+    return dash_(true);
   });
 
   if (a === 'adjust') return withLock_(() => {
@@ -190,7 +192,7 @@ function handle_(p) {
     t[g] = Math.max(0, t[g] + d);
     putJ_('totals', t);
     pushFeed_({ t: Date.now(), g: g, who: '선생님', pts: d, teacher: true });
-    return dash_();
+    return dash_(true);
   });
 
   /* 남은 시간 ±1분 */
@@ -199,7 +201,7 @@ function handle_(p) {
     if (c.open === 'open' && c.ends) c.ends = Math.max(now + 5000, c.ends + d);
     else if (c.open === 'wait' && c.left) c.left = Math.max(5000, c.left + d);
     putJ_('cfg', c);
-    return dash_();
+    return dash_(true);
   });
 
   /* 개인전 점수 고치기 */
@@ -208,7 +210,7 @@ function handle_(p) {
     if (!m[String(p.id)]) return { ok: false, error: 'id' };
     soloAdd_(p.id, '', d);
     pushFeed_({ t: Date.now(), g: 0, who: '선생님 → ' + m[String(p.id)].n, pts: d, teacher: true, solo: true });
-    return dash_();
+    return dash_(true);
   });
 
   if (a === 'reset') return withLock_(() => {
@@ -220,34 +222,41 @@ function handle_(p) {
     putJ_('feed', []);
     const st = sheet_('학생', STU_HEAD);
     if (st.getLastRow() > 1) st.getRange(2, 1, st.getLastRow() - 1, STU_HEAD.length).clearContent();
-    return dash_();
+    return dash_(true);
   });
 
   return { ok: false, error: 'unknown action' };
 }
 
 /* ---------- 교사 대시보드 ---------- */
-function dash_() {
+/* light: 교사 버튼을 눌렀을 때는 '많이 틀린 문제' 계산을 건너뛰어 빨리 돌려줌 */
+function dash_(light) {
   const c = cfg_(), st = publicState_();
   const { rows } = stuRows_();
   st.students = rows.filter(r => r[0] !== '' && String(r[9]) === String(c.sid)).map(r => ({
     id: String(r[0]), g: Number(r[1]), name: String(r[2]), qi: Number(r[3]) || 0, first: Number(r[4]) || 0,
-    pts: Number(r[5]) || 0, done: r[6] === 'Y', joined: Number(r[7]) || 0, updated: Number(r[8]) || 0
+    pts: Number(r[5]) || 0, done: r[6] === 'Y', joined: Number(r[7]) || 0, updated: Number(r[8]) || 0, bonus: Number(r[10]) || 0
   }));
   st.feed = feed_();
+  st.allNames = c.names;
+  if (light) { st.light = true; return st; }
+  /* 많이 틀린 문제는 20초마다 한 번만 다시 계산 */
+  const cache = CacheService.getScriptCache(), ck = 'hard_' + c.sid, hit = cache.get(ck);
+  if (hit) { st.hard = JSON.parse(hit); return st; }
   const log = sheet_('기록', LOG_HEAD), n = log.getLastRow() - 1;
   const stat = {};
   if (n > 0) {
     const take = Math.min(n, 3000);
     log.getRange(n - take + 2, 1, take, 10).getValues().forEach(r => {
       if (String(r[1]) !== String(c.sid)) return;
+      if (!(Number(r[5]) > 0)) return;          // 보너스 문제(B…)는 빼고 셈
       const k = String(r[5]);
       stat[k] = stat[k] || { qi: Number(r[5]), q: String(r[6]), n: 0, wrong: 0 };
       stat[k].n++; if (Number(r[9]) > 1 || r[8] === 'X') stat[k].wrong++;
     });
   }
   st.hard = Object.keys(stat).map(k => stat[k]).filter(x => x.wrong > 0).sort((a, b) => b.wrong / b.n - a.wrong / a.n || b.wrong - a.wrong).slice(0, 6);
-  st.allNames = c.names;
+  cache.put(ck, JSON.stringify(st.hard), 20);
   return st;
 }
 
